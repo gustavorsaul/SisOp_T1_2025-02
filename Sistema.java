@@ -1,6 +1,6 @@
 // PUCRS - Escola Politécnica - Sistemas Operacionais
 // Prof. Fernando Dotti
-// Versão com Funcionamento Contínuo e Escalonador em Thread Dedicada (COMPLETO)
+// Versão Final com Dupla Modalidade de Execução (Bloqueante e Contínua/Threaded)
 
 import java.util.*;
 
@@ -74,6 +74,7 @@ public class Sistema {
         public int[] getContextRegs() { return Arrays.copyOf(reg, reg.length); }
         public void setContext(int _pc, int[] _regs) { pc = _pc; reg = Arrays.copyOf(_regs, _regs.length); }
         public void resetInstructionCounter() { instructionCounter = 0; }
+        
         public int toPhysical(int endLogico) {
             if (tabelaPaginas == null) return endLogico;
             if (endLogico < 0) { irpt = Interrupts.intEnderecoInvalido; return -1; }
@@ -85,6 +86,7 @@ public class Sistema {
             if (endFis < 0 || endFis >= m.length) { irpt = Interrupts.intEnderecoInvalido; return -1; }
             return endFis;
         }
+
         private boolean legalFisico(int e) {
             if (e >= 0 && e < m.length) return true;
             else { irpt = Interrupts.intEnderecoInvalido; return false; }
@@ -220,6 +222,10 @@ public class Sistema {
 
     public class SO {
         public HW hw; public InterruptHandling ih; public SysCallHandling sc; public Utilities utils; public GM gm; public ProcessManager gp;
+        public enum ExecutionMode { BLOCKING, THREADED }
+        private ExecutionMode mode = ExecutionMode.BLOCKING;
+        private boolean schedulerThreadStarted = false;
+
         public SO(HW _hw) {
             hw = _hw; ih = new InterruptHandling(this); sc = new SysCallHandling(this);
             hw.cpu.setAddressOfHandlers(ih, sc);
@@ -228,7 +234,24 @@ public class Sistema {
             gp = new ProcessManager();
         }
 
+        public void activateThreadedMode() {
+            if (schedulerThreadStarted) {
+                System.out.println("O modo de execução com threads já está ativo.");
+                return;
+            }
+            if (gp.getRunningProcess() != null) {
+                System.out.println("Não é possível mudar de modo enquanto um processo está em execução. Aguarde o fim do 'execAll'.");
+                return;
+            }
+            this.mode = ExecutionMode.THREADED;
+            this.schedulerThreadStarted = true;
+            Thread schedulerThread = new Thread(new SchedulerExecutor(this));
+            schedulerThread.start();
+            System.out.println("Modo de execução contínuo (threaded) ativado.");
+        }
+
         public enum ProcessState { READY, RUNNING, TERMINATED, BLOCKED }
+
         public class PCB {
             private int id, pc; private int[] pageTable, registradores; private ProcessState state;
             public PCB(int id, int[] pageTable) {
@@ -253,6 +276,23 @@ public class Sistema {
             public Queue<PCB> getReadyQueue() { return readyQueue; }
             public Object getSchedulerLock() { return schedulerLock; }
 
+            public void execAllBlocking() {
+                if (mode == ExecutionMode.THREADED) {
+                    System.out.println("Comando 'execAll' não está disponível no modo de execução contínuo (threaded).");
+                    return;
+                }
+                if (readyQueue.isEmpty()){
+                    System.out.println("Nenhum processo na fila de prontos para executar.");
+                    return;
+                }
+                System.out.println("---------------------------------- Iniciando execução BLOQUEANTE de processos");
+                escalonar(false);
+                while(runningProcess != null){
+                    hw.cpu.step();
+                }
+                System.out.println("---------------------------------- Todos os processos terminaram (modo bloqueante).");
+            }
+
             public int criaProcesso(Word[] programa) {
                 synchronized (schedulerLock) {
                     if (programa == null) { System.out.println("Erro: Programa não encontrado."); return -1; }
@@ -263,7 +303,9 @@ public class Sistema {
                     pcbList.add(pcb);
                     readyQueue.add(pcb);
                     System.out.println("Processo " + pcb.getId() + " criado e pronto.");
-                    schedulerLock.notifyAll();
+                    if (mode == ExecutionMode.THREADED) {
+                        schedulerLock.notifyAll();
+                    }
                     return pcb.getId();
                 }
             }
@@ -273,7 +315,11 @@ public class Sistema {
                     PCB pcb = findPcbById(id);
                     if (pcb == null) { System.out.println("Erro: Processo com ID " + id + " não encontrado."); return; }
                     gm.desaloca(pcb.getPageTable()); pcbList.remove(pcb); readyQueue.remove(pcb);
-                    if (runningProcess != null && runningProcess.getId() == id) runningProcess = null;
+                    if (runningProcess != null && runningProcess.getId() == id) {
+                        // Se o processo a ser removido estiver em execução, pare a CPU e escalone o próximo
+                        runningProcess = null;
+                        terminaProcessoAtual();
+                    }
                     System.out.println("Processo " + id + " desalocado.");
                 }
             }
@@ -294,7 +340,11 @@ public class Sistema {
                     if (readyQueue.isEmpty()) {
                         runningProcess = null;
                         hw.cpu.stop();
-                        System.out.println("---------------------------------- Fila de prontos vazia. CPU parada.");
+                        if (mode == ExecutionMode.BLOCKING) {
+                           System.out.println("---------------------------------- Fila de prontos vazia. Fim do 'execAll'.");
+                        } else {
+                           System.out.println("---------------------------------- Fila de prontos vazia. CPU em espera.");
+                        }
                         return;
                     }
                     runningProcess = readyQueue.poll();
@@ -318,6 +368,7 @@ public class Sistema {
                     escalonar(true);
                 }
             }
+
             public void listAllProcesses() { 
                 synchronized (schedulerLock) {
                     System.out.println("Lista de todos os processos:");
@@ -327,6 +378,7 @@ public class Sistema {
                     }
                 }
             }
+
             public void dumpProcess(int id) { 
                 synchronized (schedulerLock) {
                     PCB pcb = findPcbById(id);
@@ -378,10 +430,9 @@ public class Sistema {
     public Sistema(int tamMem) { hw = new HW(tamMem); so = new SO(hw); progs = new Programs(); }
 
     public void run() {
-        System.out.println("Sistema Operacional iniciado. Quantum = " + QUANTUM + ".");
-        Thread schedulerThread = new Thread(new SchedulerExecutor(so));
-        schedulerThread.start();
-
+        System.out.println("Sistema Operacional iniciado em modo BLOQUEANTE.");
+        System.out.println("Use 'execAll' para rodar processos ou 'thread2' para ativar o modo contínuo.");
+        
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.print("> ");
@@ -412,12 +463,17 @@ public class Sistema {
                 case "traceoff":
                     hw.cpu.setDebug(false); System.out.println("Modo trace desativado.");
                     break;
-                case "exit":
-                    schedulerThread.interrupt();
-                    scanner.close();
-                    return;
                 case "help":
-                     System.out.println("Comandos: new <prog>, rm <id>, ps, dump <id>, dumpm <ini> <fim>, traceon, traceoff, exit");
+                     System.out.println("Comandos: new <prog>, rm <id>, ps, dump <id>, dumpm <ini> <fim>, execall, thread2, traceon, traceoff, exit");
+                    break;
+                case "exit":
+                    System.exit(0);
+                    break;
+                case "execall":
+                    so.gp.execAllBlocking();
+                    break;
+                case "thread2":
+                    so.activateThreadedMode();
                     break;
                 default:
                     if (!command[0].isEmpty()) System.out.println("Comando desconhecido: " + command[0]);
@@ -451,7 +507,8 @@ public class Sistema {
                 new Word(Opcode.SYSCALL,-1,-1,-1),   // 11
                 new Word(Opcode.STOP, -1, -1, -1),   // 12
                 new Word(Opcode.DATA, -1, -1, -1)}),  // 13 (espaço para resultado)
-                new Program("fatorialV2",
+                
+            new Program("fatorialV2",
 						new Word[] {
 								new Word(Opcode.LDI, 0, -1, 5), // numero para colocar na memoria, ou pode ser lido
 								new Word(Opcode.STD, 0, -1, 19),
@@ -712,7 +769,6 @@ public class Sistema {
 								new Word(Opcode.DATA, -1, -1, -1),
 								new Word(Opcode.DATA, -1, -1, -1)
 						})
-        
-            };
+        };
     }
 }

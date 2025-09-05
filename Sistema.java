@@ -1,7 +1,7 @@
-
 // PUCRS - Escola Politécnica - Sistemas Operacionais
 // Prof. Fernando Dotti
 // Versão com paginação mínima: GM + loader paginado + tradução centralizada (Fatorial apenas)
+// MODIFICADO PARA INCLUIR GERENTE DE PROCESSOS (GP) E SHELL INTERATIVO
 
 import java.util.*;
 
@@ -82,6 +82,11 @@ public class Sistema {
             reg = new int[10];
             debug = _debug;
         }
+        
+        // NOVO: Método para ligar/desligar o modo trace
+        public void setDebug(boolean _debug){
+            this.debug = _debug;
+        }
 
         public void setAddressOfHandlers(InterruptHandling _ih, SysCallHandling _sysCall) {
             ih = _ih;
@@ -127,6 +132,11 @@ public class Sistema {
             pc = _pc;
             irpt = Interrupts.noInterrupt;
         }
+        
+        // NOVO: Método para salvar o contexto de um processo (seu PC)
+        public int getContext() {
+            return pc;
+        }
 
         public void run() {
             cpuStop = false;
@@ -146,45 +156,19 @@ public class Sistema {
                     // EXEC
                     switch (ir.opc) {
                         // Movimentação e memória
-                        case LDI: // Rd <- k
-                            reg[ir.ra] = ir.p; pc++; break;
-
-                        case LDD: { // Rd <- [A]  (A = lógico)
-                            int a = toPhysical(ir.p);
-                            if (legalFisico(a)) { reg[ir.ra] = m[a].p; pc++; }
-                        } break;
-
-                        case LDX: { // RD <- [RS]  (RS contém lógico)
-                            int a = toPhysical(reg[ir.rb]);
-                            if (legalFisico(a)) { reg[ir.ra] = m[a].p; pc++; }
-                        } break;
-
-                        case STD: { // [A] <- Rs   (A lógico)
-                            int a = toPhysical(ir.p);
-                            if (legalFisico(a)) {
-                                m[a].opc = Opcode.DATA;
-                                m[a].p = reg[ir.ra];
-                                pc++;
-                                if (debug) { System.out.print("                                  "); u.dump(a,a+1); }
-                            }
-                        } break;
-
-                        case STX: { // [Rd] <- Rs  (Rd contém lógico)
-                            int a = toPhysical(reg[ir.ra]);
-                            if (legalFisico(a)) { m[a].opc = Opcode.DATA; m[a].p = reg[ir.rb]; pc++; }
-                        } break;
-
-                        case MOVE: // RD <- RS
-                            reg[ir.ra] = reg[ir.rb]; pc++; break;
-
+                        case LDI: reg[ir.ra] = ir.p; pc++; break;
+                        case LDD: { int a = toPhysical(ir.p); if (legalFisico(a)) { reg[ir.ra] = m[a].p; pc++; } } break;
+                        case LDX: { int a = toPhysical(reg[ir.rb]); if (legalFisico(a)) { reg[ir.ra] = m[a].p; pc++; } } break;
+                        case STD: { int a = toPhysical(ir.p); if (legalFisico(a)) { m[a].opc = Opcode.DATA; m[a].p = reg[ir.ra]; pc++; if (debug) { System.out.print("                                  "); u.dump(a,a+1); } } } break;
+                        case STX: { int a = toPhysical(reg[ir.ra]); if (legalFisico(a)) { m[a].opc = Opcode.DATA; m[a].p = reg[ir.rb]; pc++; } } break;
+                        case MOVE: reg[ir.ra] = reg[ir.rb]; pc++; break;
                         // Aritméticas
                         case ADD:  reg[ir.ra] = reg[ir.ra] + reg[ir.rb]; testOverflow(reg[ir.ra]); pc++; break;
                         case ADDI: reg[ir.ra] = reg[ir.ra] + ir.p;        testOverflow(reg[ir.ra]); pc++; break;
                         case SUB:  reg[ir.ra] = reg[ir.ra] - reg[ir.rb]; testOverflow(reg[ir.ra]); pc++; break;
                         case SUBI: reg[ir.ra] = reg[ir.ra] - ir.p;        testOverflow(reg[ir.ra]); pc++; break;
                         case MULT: reg[ir.ra] = reg[ir.ra] * reg[ir.rb]; testOverflow(reg[ir.ra]); pc++; break;
-
-                        // Jumps (pc é lógico)
+                        // Jumps
                         case JMP:    pc = ir.p; break;
                         case JMPI:   pc = reg[ir.ra]; break;
                         case JMPIG:  pc = (reg[ir.rb] > 0) ? reg[ir.ra] : pc+1; break;
@@ -193,45 +177,19 @@ public class Sistema {
                         case JMPIGK: pc = (reg[ir.rb] > 0) ? ir.p : pc+1; break;
                         case JMPILK: pc = (reg[ir.rb] < 0) ? ir.p : pc+1; break;
                         case JMPIEK: pc = (reg[ir.rb] == 0) ? ir.p : pc+1; break;
-
-                        case JMPIM: { // PC <- [A] (A lógico)
-                            int a = toPhysical(ir.p);
-                            if (legalFisico(a)) pc = m[a].p;
-                        } break;
-                        case JMPIGM: { // if RC>0 PC <- [A] else PC++
-                            int a = toPhysical(ir.p);
-                            if (legalFisico(a)) pc = (reg[ir.rb] > 0) ? m[a].p : pc+1;
-                        } break;
-                        case JMPILM: { // if RC<0 PC <- [A] else PC++
-                            int a = toPhysical(ir.p);
-                            if (legalFisico(a)) pc = (reg[ir.rb] < 0) ? m[a].p : pc+1;
-                        } break;
-                        case JMPIEM: { // if RC==0 PC <- [A] else PC++
-                            int a = toPhysical(ir.p);
-                            if (legalFisico(a)) pc = (reg[ir.rb] == 0) ? m[a].p : pc+1;
-                        } break;
-
-                        case DATA: // pc está sobre área supostamente de dados
-                            irpt = Interrupts.intInstrucaoInvalida;
-                            break;
-
-                        case SYSCALL:
-                            sysCall.handle();
-                            pc++;
-                            break;
-
-                        case STOP:
-                            sysCall.stop();
-                            cpuStop = true;
-                            break;
-
-                        default:
-                            irpt = Interrupts.intInstrucaoInvalida;
-                            break;
+                        case JMPIM: { int a = toPhysical(ir.p); if (legalFisico(a)) pc = m[a].p; } break;
+                        case JMPIGM: { int a = toPhysical(ir.p); if (legalFisico(a)) pc = (reg[ir.rb] > 0) ? m[a].p : pc+1; } break;
+                        case JMPILM: { int a = toPhysical(ir.p); if (legalFisico(a)) pc = (reg[ir.rb] < 0) ? m[a].p : pc+1; } break;
+                        case JMPIEM: { int a = toPhysical(ir.p); if (legalFisico(a)) pc = (reg[ir.rb] == 0) ? m[a].p : pc+1; } break;
+                        // Especiais
+                        case DATA: irpt = Interrupts.intInstrucaoInvalida; break;
+                        case SYSCALL: sysCall.handle(); pc++; break;
+                        case STOP: sysCall.stop(); cpuStop = true; break;
+                        default: irpt = Interrupts.intInstrucaoInvalida; break;
                     }
                 }
 
-                if (irpt != Interrupts.noInterrupt) { // interrupção (fim nesta versão)
+                if (irpt != Interrupts.noInterrupt) {
                     ih.handle(irpt);
                     cpuStop = true;
                 }
@@ -252,13 +210,13 @@ public class Sistema {
 
         public HW(int tamMem) {
             mem = new Memory(tamMem);
-            cpu = new CPU(mem, true); // true liga debug
+            cpu = new CPU(mem, false); // debug inicia desligado
         }
     }
 
     // ======================= S O ==========================================
     public class InterruptHandling {
-        private HW hw; // referencia ao hw se tiver que setar algo
+        private HW hw;
         public InterruptHandling(HW _hw) { hw = _hw; }
         public void handle(Interrupts irpt) {
             System.out.println("                                               Interrupcao " + irpt);
@@ -266,13 +224,13 @@ public class Sistema {
     }
 
     public class SysCallHandling {
-        private HW hw; // referencia ao hw se tiver que setar algo
+        private HW hw;
         public SysCallHandling(HW _hw) { hw = _hw; }
         public void stop() { System.out.println("                                               SYSCALL STOP"); }
-        public void handle() { // reg[8] = 1(entrada) | 2(saida); reg[9] = endereço lógico
+        public void handle() {
             System.out.println("SYSCALL pars:  " + hw.cpu.reg[8] + " / " + hw.cpu.reg[9]);
             if (hw.cpu.reg[8]==1){
-                // entrada (não implementada nesta versão mínima)
+                // entrada
             } else if (hw.cpu.reg[8]==2){
                 int fis = hw.cpu.toPhysical(hw.cpu.reg[9]);
                 if (fis >= 0) {
@@ -284,21 +242,18 @@ public class Sistema {
 
     // ======================= GM (Gerente de Memória) ======================
     public interface GM {
-        // retorna a tabela de páginas se conseguir alocar, ou null caso contrário
         int[] aloca(int nroPalavras);
         void desaloca(int[] tabelaPaginas);
     }
 
     public class SimplePagingGM implements GM {
-        private final int tamMem;
         private final int tamPg;
         private final int qtdFrames;
-        private final boolean[] livre; // true = livre; false = ocupado
+        private final boolean[] livre;
 
         public SimplePagingGM(int tamMemPalavras, int tamPgPalavras) {
-            this.tamMem = tamMemPalavras;
             this.tamPg = tamPgPalavras;
-            this.qtdFrames = tamMem / tamPg;
+            this.qtdFrames = tamMemPalavras / tamPg;
             this.livre = new boolean[qtdFrames];
             Arrays.fill(livre, true);
         }
@@ -311,7 +266,7 @@ public class Sistema {
             for (int f = 0; f < qtdFrames && frames.size() < paginasNec; f++) {
                 if (livre[f]) frames.add(f);
             }
-            if (frames.size() < paginasNec) return null; // não há frames suficientes
+            if (frames.size() < paginasNec) return null;
             int[] tabela = new int[paginasNec];
             for (int i = 0; i < paginasNec; i++) {
                 int f = frames.get(i);
@@ -339,24 +294,20 @@ public class Sistema {
             hw = _hw;
             gm = _gm;
         }
-
-        // carrega programa em frames alocados conforme tabelaPaginas
-        private void loadProgramPaged(Word[] prog, int[] tabelaPaginas, int tamPg) {
-            Word[] m = hw.mem.pos; // física
+        
+        // MODIFICADO: agora é público para ser usado pelo GP
+        public void loadProgramPaged(Word[] prog, int[] tabelaPaginas) {
+            Word[] m = hw.mem.pos;
             for (int i = 0; i < prog.length; i++) {
-                int pag = i / tamPg;
-                int off = i % tamPg;
+                int pag = i / TAM_PG;
+                int off = i % TAM_PG;
                 int frame = tabelaPaginas[pag];
-                int base = frame * tamPg;
+                int base = frame * TAM_PG;
                 int fis = base + off;
-                m[fis].opc = prog[i].opc;
-                m[fis].ra  = prog[i].ra;
-                m[fis].rb  = prog[i].rb;
-                m[fis].p   = prog[i].p;
+                m[fis] = new Word(prog[i].opc, prog[i].ra, prog[i].rb, prog[i].p);
             }
         }
 
-        // dump da memória (faixa física)
         public void dump(Word w) {
             System.out.print("[ " + w.opc + ", " + w.ra + ", " + w.rb + ", " + w.p + " ] ");
         }
@@ -369,46 +320,177 @@ public class Sistema {
                 System.out.println();
             }
         }
-
-        private void loadAndExecPaged(Word[] prog) {
-            int tamMem = hw.mem.pos.length;
-            int[] tabela = gm.aloca(prog.length);
-            if (tabela == null) {
-                System.out.println("Falha de alocação: memória insuficiente.");
-                return;
-            }
-
-            loadProgramPaged(prog, tabela, TAM_PG);
-            // instala MMU no CPU
-            hw.cpu.setMMU(tabela, TAM_PG);
-
-            System.out.println("---------------------------------- programa carregado (paginado)");
-            // opcional: dump físico das primeiras páginas carregadas
-            // dump(0, Math.min(tamMem, 4*TAM_PG));
-
-            hw.cpu.setContext(0); // PC lógico inicia em 0
-            System.out.println("---------------------------------- inicia execucao ");
-            hw.cpu.run();
-            System.out.println("---------------------------------- fim execucao ");
-
-            gm.desaloca(tabela); // libera frames (nesta versão simples, ao final)
-        }
     }
 
     // ======================= SO ==========================================
+    // ESTA CLASSE FOI AMPLAMENTE MODIFICADA PARA INCLUIR O GERENTE DE PROCESSOS
     public class SO {
         public InterruptHandling ih;
         public SysCallHandling sc;
         public Utilities utils;
         public GM gm;
+        public ProcessManager gp; // NOVO: Gerente de Processos
+        private HW hw; // ADICIONE ESTA LINHA
 
         public SO(HW hw) {
+            this.hw = hw; // ADICIONE ESTA LINHA
             ih = new InterruptHandling(hw);
             sc = new SysCallHandling(hw);
             hw.cpu.setAddressOfHandlers(ih, sc);
-
             gm = new SimplePagingGM(hw.mem.pos.length, TAM_PG);
             utils = new Utilities(hw, gm);
+            gp = new ProcessManager(hw); // PASSE O HW PARA O GP
+        }
+        
+        // NOVO: Enum para estados do processo
+        public enum ProcessState { READY, RUNNING, TERMINATED }
+
+        // NOVO: Classe para o Process Control Block (PCB)
+        public class PCB {
+            private final int id;
+            private int pc;
+            private final int[] pageTable;
+            private ProcessState state;
+
+            public PCB(int id, int[] pageTable) {
+                this.id = id;
+                this.pc = 0; // PC inicial sempre 0
+                this.pageTable = pageTable;
+                this.state = ProcessState.READY;
+            }
+            public int getId() { return id; }
+            public int getPc() { return pc; }
+            public void setPc(int pc) { this.pc = pc; }
+            public int[] getPageTable() { return pageTable; }
+            public ProcessState getState() { return state; }
+            public void setState(ProcessState state) { this.state = state; }
+        }
+
+        // NOVO: Classe para o Gerente de Processos (GP)
+        public class ProcessManager {
+            private HW hw; // ADICIONE ESTA LINHA
+            private List<PCB> pcbList;
+            private Queue<PCB> readyQueue;
+            private PCB runningProcess;
+            private int nextProcessId;
+
+            public ProcessManager(HW hw) { // ALTERE O CONSTRUTOR
+                this.hw = hw; // ADICIONE ESTA LINHA
+                pcbList = new ArrayList<>();
+                readyQueue = new LinkedList<>();
+                runningProcess = null;
+                nextProcessId = 1;
+            }
+            
+            // Funcionalidade: cria um novo processo
+            public int criaProcesso(Word[] programa) {
+                if (programa == null) {
+                    System.out.println("Erro: Programa não encontrado.");
+                    return -1;
+                }
+                int[] tabelaPaginas = gm.aloca(programa.length);
+                if (tabelaPaginas == null) {
+                    System.out.println("Erro: Falha de alocação de memória.");
+                    return -1;
+                }
+
+                PCB pcb = new PCB(nextProcessId++, tabelaPaginas);
+                utils.loadProgramPaged(programa, pcb.getPageTable());
+                
+                pcbList.add(pcb);
+                readyQueue.add(pcb);
+                
+                System.out.println("Processo " + pcb.getId() + " criado e adicionado à fila de prontos.");
+                return pcb.getId();
+            }
+            
+            // Funcionalidade: desaloca um processo
+            public void desalocaProcesso(int id) {
+                PCB pcb = findPcbById(id);
+                if (pcb == null) {
+                    System.out.println("Erro: Processo com ID " + id + " não encontrado.");
+                    return;
+                }
+                
+                gm.desaloca(pcb.getPageTable());
+                pcbList.remove(pcb);
+                readyQueue.remove(pcb);
+                if (runningProcess != null && runningProcess.getId() == id) {
+                    runningProcess = null;
+                }
+                
+                System.out.println("Processo " + id + " desalocado.");
+            }
+            
+            public void executaProcesso(int id) {
+                PCB pcb = findPcbById(id);
+                if (pcb == null) {
+                    System.out.println("Erro: Processo com ID " + id + " não encontrado.");
+                    return;
+                }
+                if (pcb.getState() == ProcessState.TERMINATED) {
+                    System.out.println("Erro: Processo " + id + " já foi terminado.");
+                    return;
+                }
+                
+                runningProcess = pcb;
+                readyQueue.remove(pcb);
+                pcb.setState(ProcessState.RUNNING);
+
+                System.out.println("---------------------------------- Inicia execução do processo " + id);
+                hw.cpu.setMMU(pcb.getPageTable(), TAM_PG);
+                hw.cpu.setContext(pcb.getPc());
+                hw.cpu.run(); // Executa até um STOP ou interrupção
+                pcb.setPc(hw.cpu.getContext()); // Salva o PC
+                System.out.println("---------------------------------- Fim execução do processo " + id);
+
+                // Em um SO simples como este, o processo que para é considerado terminado
+                pcb.setState(ProcessState.TERMINATED);
+                runningProcess = null;
+            }
+
+            public void listAllProcesses() {
+                System.out.println("Lista de todos os processos:");
+                if (pcbList.isEmpty()) {
+                    System.out.println("Nenhum processo no sistema.");
+                    return;
+                }
+                for (PCB pcb : pcbList) {
+                    System.out.println("  ID: " + pcb.getId() + 
+                                       ", Estado: " + pcb.getState() + 
+                                       ", PC: " + pcb.getPc() + 
+                                       ", Tabela de Páginas: " + Arrays.toString(pcb.getPageTable()));
+                }
+            }
+            
+            public void dumpProcess(int id) {
+                PCB pcb = findPcbById(id);
+                if (pcb == null) {
+                    System.out.println("Erro: Processo com ID " + id + " não encontrado.");
+                    return;
+                }
+                System.out.println("--- Dump do Processo ID: " + pcb.getId() + " ---");
+                System.out.println("  Estado: " + pcb.getState());
+                System.out.println("  PC Lógico: " + pcb.getPc());
+                System.out.println("  Tabela de Páginas: " + Arrays.toString(pcb.getPageTable()));
+                System.out.println("  Conteúdo da Memória (visão física):");
+                for (int frame : pcb.getPageTable()) {
+                    int start = frame * TAM_PG;
+                    int end = start + TAM_PG;
+                    System.out.println("    Frame " + frame + " (Endereços Físicos " + start + "-" + (end-1) + "):");
+                    utils.dump(start, end);
+                }
+                System.out.println("--- Fim do Dump ---");
+            }
+            
+            private PCB findPcbById(int id) {
+                for (PCB pcb : pcbList) {
+                    if (pcb.getId() == id) {
+                        return pcb;
+                    }
+                }
+                return null;
+            }
         }
     }
 
@@ -423,10 +505,101 @@ public class Sistema {
         hw.cpu.setUtilities(so.utils);
         progs = new Programs();
     }
-
+    
+    // MÉTODO RUN MODIFICADO PARA SER O SHELL INTERATIVO
     public void run() {
-        // smoke test só com FATORIAL
-        so.utils.loadAndExecPaged(progs.retrieveProgram("fatorial"));
+        System.out.println("Sistema Operacional iniciado. Digite 'help' para ver os comandos.");
+        Scanner scanner = new Scanner(System.in);
+        while (true) {
+            System.out.print("> ");
+            String[] command = scanner.nextLine().split(" ");
+            
+            switch (command[0].toLowerCase()) {
+                case "new":
+                    if (command.length > 1) {
+                        Word[] prog = progs.retrieveProgram(command[1]);
+                        so.gp.criaProcesso(prog);
+                    } else {
+                        System.out.println("Uso: new <nomeDoPrograma>");
+                    }
+                    break;
+                case "rm":
+                    if (command.length > 1) {
+                        try {
+                            so.gp.desalocaProcesso(Integer.parseInt(command[1]));
+                        } catch (NumberFormatException e) {
+                            System.out.println("ID inválido. Deve ser um número.");
+                        }
+                    } else {
+                        System.out.println("Uso: rm <id>");
+                    }
+                    break;
+                case "ps":
+                    so.gp.listAllProcesses();
+                    break;
+                case "dump":
+                     if (command.length > 1) {
+                        try {
+                            so.gp.dumpProcess(Integer.parseInt(command[1]));
+                        } catch (NumberFormatException e) {
+                            System.out.println("ID inválido. Deve ser um número.");
+                        }
+                    } else {
+                        System.out.println("Uso: dump <id>");
+                    }
+                    break;
+                case "dumpm":
+                    if (command.length > 2) {
+                         try {
+                            int start = Integer.parseInt(command[1]);
+                            int end = Integer.parseInt(command[2]);
+                            so.utils.dump(start, end);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Endereços inválidos. Devem ser números.");
+                        }
+                    } else {
+                        System.out.println("Uso: dumpM <inicio> <fim>");
+                    }
+                    break;
+                case "exec":
+                     if (command.length > 1) {
+                        try {
+                            so.gp.executaProcesso(Integer.parseInt(command[1]));
+                        } catch (NumberFormatException e) {
+                            System.out.println("ID inválido. Deve ser um número.");
+                        }
+                    } else {
+                        System.out.println("Uso: exec <id>");
+                    }
+                    break;
+                case "traceon":
+                    hw.cpu.setDebug(true);
+                    System.out.println("Modo trace ativado.");
+                    break;
+                case "traceoff":
+                    hw.cpu.setDebug(false);
+                    System.out.println("Modo trace desativado.");
+                    break;
+                case "exit":
+                    System.out.println("Saindo do sistema...");
+                    scanner.close();
+                    return;
+                case "help":
+                    System.out.println("Comandos disponíveis:");
+                    System.out.println("  new <nome>     - Cria um novo processo (ex: new fatorial)");
+                    System.out.println("  rm <id>        - Remove um processo do sistema");
+                    System.out.println("  ps             - Lista todos os processos");
+                    System.out.println("  dump <id>      - Mostra informações e memória de um processo");
+                    System.out.println("  dumpM <ini> <fim> - Mostra conteúdo da memória física");
+                    System.out.println("  exec <id>      - Executa um processo");
+                    System.out.println("  traceOn        - Liga o modo de debug da CPU");
+                    System.out.println("  traceOff       - Desliga o modo de debug da CPU");
+                    System.out.println("  exit           - Encerra o sistema");
+                    break;
+                default:
+                    System.out.println("Comando desconhecido: " + command[0]);
+            }
+        }
     }
 
     public static void main(String args[]) {

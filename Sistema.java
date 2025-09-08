@@ -10,7 +10,7 @@ public class Sistema {
     private final int QUANTUM = 4;
 
     public Sistema() {
-        this.hw = new Hardware.HW(TAM_MEM, 8); 
+        this.hw = new Hardware.HW(TAM_MEM, 32); 
         this.so = new SisOp(hw);
         this.progs = new Programs();
     }
@@ -27,32 +27,54 @@ public class Sistema {
 
             switch (command[0].toLowerCase()) {
                 case "new":
-                    if (command.length > 1) so.processManager.criaProcesso(progs.retrieveProgram(command[1]));
-                    else System.out.println("Uso: new <nomeDoPrograma>");
+                    if (command.length > 1) 
+                        so.processManager.criaProcesso(progs.retrieveProgram(command[1]));
+                    else 
+                        System.out.println("Uso: new <nomeDoPrograma>");
                     break;
                 case "rm":
-                    if (command.length > 1) try { so.processManager.desalocaProcesso(Integer.parseInt(command[1])); } catch (NumberFormatException e) { System.out.println("ID inválido."); }
-                    else System.out.println("Uso: rm <id>");
+                    if (command.length > 1) 
+                        try { 
+                            so.processManager.desalocaProcesso(Integer.parseInt(command[1])); 
+                        } catch (NumberFormatException e) { 
+                            System.out.println("ID inválido."); 
+                        }
+                    else 
+                        System.out.println("Uso: rm <id>");
                     break;
                 case "ps":
                     so.processManager.listAllProcesses();
                     break;
                 case "dump":
-                     if (command.length > 1) try { so.processManager.dumpProcess(Integer.parseInt(command[1])); } catch (NumberFormatException e) { System.out.println("ID inválido."); }
-                    else System.out.println("Uso: dump <id>");
+                    if (command.length > 1) 
+                        try { 
+                            so.processManager.dumpProcess(Integer.parseInt(command[1])); 
+                        } catch (NumberFormatException e) { 
+                            System.out.println("ID inválido."); 
+                        }
+                    else 
+                        System.out.println("Uso: dump <id>");
                     break;
                 case "dumpm":
-                    if (command.length > 2) try { so.utils.dump(Integer.parseInt(command[1]), Integer.parseInt(command[2])); } catch (NumberFormatException e) { System.out.println("Endereços inválidos."); }
-                    else System.out.println("Uso: dumpM <inicio> <fim>");
+                    if (command.length > 2) 
+                        try { 
+                            so.utils.dump(Integer.parseInt(command[1]), Integer.parseInt(command[2])); 
+                        } catch (NumberFormatException e) { 
+                            System.out.println("Endereços inválidos."); 
+                        }
+                    else 
+                        System.out.println("Uso: dumpM <inicio> <fim>");
                     break;
                 case "traceon":
-                    hw.cpu.setDebug(true); System.out.println("Modo trace ativado.");
+                    hw.cpu.setDebug(true); 
+                    System.out.println("Modo trace ativado.");
                     break;
                 case "traceoff":
-                    hw.cpu.setDebug(false); System.out.println("Modo trace desativado.");
+                    hw.cpu.setDebug(false); 
+                    System.out.println("Modo trace desativado.");
                     break;
                 case "help":
-                     System.out.println("Comandos: new <prog>, rm <id>, ps, dump <id>, dumpm <ini> <fim>, execall, thread2, traceon, traceoff, exit");
+                    System.out.println("Comandos: new <prog>, rm <id>, ps, dump <id>, dumpm <ini> <fim>, execall, thread2, traceon, traceoff, exit");
                     break;
                 case "exit":
                     System.exit(0);
@@ -100,7 +122,7 @@ public class Sistema {
                     if (so.processManager.getRunningProcess() != null) {
                         so.hw.cpu.step(this.quantum);
                     }
-                    Thread.sleep(100);
+                    Thread.sleep(300);
                 } catch (InterruptedException e) {
                     System.out.println("Thread do escalonador interrompida. Encerrando.");
                     Thread.currentThread().interrupt();
@@ -147,7 +169,7 @@ public class Sistema {
                     new Hardware.Word(Hardware.CPU.Opcode.LDI, 1, -1, 1),
                     new Hardware.Word(Hardware.CPU.Opcode.LDI, 6, -1, 1),
                     new Hardware.Word(Hardware.CPU.Opcode.LDI, 7, -1, 13),
-                    new Hardware.Word(Hardware.CPU.Opcode.JMPIE, 7, 0, 0), // POS 9 pula para STD (Stop-1)
+                    new Hardware.Word(Hardware.CPU.Opcode.JMPIE, 7, 0, 0), // POS 9 pula pra STD (Stop-1)
                     new Hardware.Word(Hardware.CPU.Opcode.MULT, 1, 0, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.SUB, 0, 6, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.JMP, -1, -1, 9), // pula para o JMPIE
@@ -288,6 +310,7 @@ public class Sistema {
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1), // POS 41
+                    new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),

@@ -8,7 +8,7 @@ public class SisOp {
     public SisOp_GM gm;
     public SisOp_ProcessManager processManager;
     
-    public final int TAM_PAG = 8;
+    public final int TAM_PAG = 16;
 
     public enum ExecutionMode { BLOCKING, THREADED }
     private ExecutionMode mode = ExecutionMode.BLOCKING;
@@ -56,13 +56,17 @@ public class SisOp {
         public void loadProgram(Hardware.Word[] prog, int[] tabelaPaginas, int tamPag) {
             Hardware.Word[] m = hw.mem.pos;
             for (int i = 0; i < prog.length; i++) {
-                int pag = i / tamPag; int off = i % tamPag;
-                int frame = tabelaPaginas[pag]; int fis = frame * tamPag + off;
+                int pag = i / tamPag; 
+                int off = i % tamPag;
+                int frame = tabelaPaginas[pag]; 
+                int fis = frame * tamPag + off;
                 m[fis] = new Hardware.Word(prog[i].opc, prog[i].r1, prog[i].r2, prog[i].p);
             }
         }
 
-        public void dump(Hardware.Word w) { System.out.print("[ " + w.opc + ", " + w.r1 + ", " + w.r2 + ", " + w.p + " ]"); }
+        public void dump(Hardware.Word w) { 
+            System.out.print("[ " + w.opc + ", " + w.r1 + ", " + w.r2 + ", " + w.p + " ]"); 
+        }
         public void dump(int ini, int fim) {
             for (int i = ini; i < fim; i++) {
                 System.out.print(i + ":  ");
@@ -88,7 +92,7 @@ public class SisOp {
                     so.processManager.terminaProcessoAtual();
                     break;
                 default:
-                     System.out.println("                                               Interrupcao " + irpt);
+                    System.out.println("                                               Interrupcao " + irpt);
             }
         }
     }

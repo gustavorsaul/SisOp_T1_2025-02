@@ -116,11 +116,12 @@ public class Hardware {
             if (legalFisico(pcFis)) {
                 ir = m[pcFis];
                 if (debug) {
-                    System.out.print("                                              regs: ");
+                    System.out.print("\nregs: ");
                     for (int i = 0; i < 10; i++) System.out.print(" r[" + i + "]:" + reg[i]);
                     System.out.println();
-                    System.out.print("                      pc(log) " + pc + " -> pc(fis) " + pcFis + "       exec: ");
+                    System.out.print("pc(log) " + pc + " -> pc(fis) " + pcFis + "       exec: ");
                     u.dump(ir);
+                    System.out.print("\n------------------------------------------------------------");
 
                     /* System.out.println("------------------------------------------------------------");
                     System.out.printf("PC (lógico): %-6d | PC (físico): %-6d\n", pc, pcFis);

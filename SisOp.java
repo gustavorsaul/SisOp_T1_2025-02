@@ -82,17 +82,17 @@ public class SisOp {
         public void handle(Hardware.CPU.Interrupts irpt) {
             switch (irpt) {
                 case intQuantumEnd:
-                    System.out.println("                                               Interrupcao de TEMPO");
+                    System.out.println("\n\nInterrupcao de TEMPO");
                     so.processManager.escalonar(false);
                     break;
                 case intEnderecoInvalido:
                 case intInstrucaoInvalida:
                 case intOverflow:
-                    System.out.println("                                               ERRO: Interrupcao " + irpt);
+                    System.out.println("\n\nERRO: Interrupcao " + irpt);
                     so.processManager.terminaProcessoAtual();
                     break;
                 default:
-                    System.out.println("                                               Interrupcao " + irpt);
+                    System.out.println("\n\nInterrupcao " + irpt);
             }
         }
     }

@@ -126,7 +126,7 @@ public class SisOp_ProcessManager {
                 runningProcess.setContext(so.hw.cpu.getContextPC(), so.hw.cpu.getContextRegs());
                 runningProcess.setState(ProcessState.READY);
                 readyQueue.add(runningProcess);
-                System.out.println("Processo " + runningProcess.getId() + " salvo e movido para a fila de prontos.");
+                System.out.println("Processo " + runningProcess.getId() + " salvo e movido para a fila de prontos.\n");
             }
             if (readyQueue.isEmpty()) {
                 runningProcess = null;

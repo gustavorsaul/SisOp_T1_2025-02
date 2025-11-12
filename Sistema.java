@@ -10,7 +10,7 @@ public class Sistema {
     private final int QUANTUM = 4;
 
     public Sistema() {
-        this.hw = new Hardware.HW(TAM_MEM, 32); 
+        this.hw = new Hardware.HW(TAM_MEM, 16); 
         this.so = new SisOp(hw);
         this.progs = new Programs();
     }
@@ -77,6 +77,7 @@ public class Sistema {
                     System.out.println("Comandos: new <prog>, rm <id>, ps, dump <id>, dumpm <ini> <fim>, execall, thread2, traceon, traceoff, exit");
                     break;
                 case "exit":
+                    scanner.close();
                     System.exit(0);
                     return;
                 case "execall":
@@ -122,7 +123,7 @@ public class Sistema {
                     if (so.processManager.getRunningProcess() != null) {
                         so.hw.cpu.step(this.quantum);
                     }
-                    Thread.sleep(300);
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     System.out.println("Thread do escalonador interrompida. Encerrando.");
                     Thread.currentThread().interrupt();

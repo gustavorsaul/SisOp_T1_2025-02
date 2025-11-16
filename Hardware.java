@@ -12,7 +12,9 @@ public class Hardware {
         }
 
         public enum Interrupts {
-            noInterrupt, intEnderecoInvalido, intInstrucaoInvalida, intOverflow, intQuantumEnd
+            noInterrupt, intEnderecoInvalido, intInstrucaoInvalida, intOverflow, intQuantumEnd, 
+            // PASSO 4: Adicionada Interrupção de E/S
+            intIO 
         }
 
         private int maxInt, minInt;
@@ -23,7 +25,6 @@ public class Hardware {
         private Word[] m;
         private int tamPg;
         private int[] tabelaPaginas = null;
-        // ATUALIZADO: Tipos de referência para as novas classes do SO
         private SisOp.InterruptHandling ih;
         private SisOp.SysCallHandling sysCall;
         private boolean cpuStop;
@@ -46,7 +47,6 @@ public class Hardware {
             this.debug = _debug;
         }
 
-        // ATUALIZADO: Tipos de referência para as novas classes do SO
         public void setAddressOfHandlers(SisOp.InterruptHandling _ih, SisOp.SysCallHandling _sysCall) {
             this.ih = _ih;
             this.sysCall = _sysCall;
@@ -75,6 +75,11 @@ public class Hardware {
 
         public void resetInstructionCounter() {
             this.instructionCounter = 0;
+        }
+
+        // PASSO 4: Método para o dispositivo (outra thread) disparar uma interrupção
+        public void triggerIOInterrupt() {
+            this.irpt = Interrupts.intIO;
         }
 
         public int toPhysical(int endLogico) {
@@ -112,6 +117,15 @@ public class Hardware {
 
         public void step(int quantum) {
             if (cpuStop) return;
+
+            // Tratamento de interrupção DEVE vir antes da execução da instrução
+            // para que a interrupção de E/S (assíncrona) seja processada.
+            if (irpt != Interrupts.noInterrupt) {
+                ih.handle(irpt);
+                irpt = Interrupts.noInterrupt;
+                if (cpuStop) return; // Se a interrupção parou a CPU (p.ex. erro)
+            }
+
             int pcFis = toPhysical(pc);
             if (legalFisico(pcFis)) {
                 ir = m[pcFis];
@@ -120,20 +134,11 @@ public class Hardware {
                     for (int i = 0; i < 10; i++) System.out.print(" r[" + i + "]:" + reg[i]);
                     System.out.println();
                     System.out.print("pc(log) " + pc + " -> pc(fis) " + pcFis + "       exec: ");
-                    u.dump(ir);
                     System.out.print("\n------------------------------------------------------------");
-
-                    /* System.out.println("------------------------------------------------------------");
-                    System.out.printf("PC (lógico): %-6d | PC (físico): %-6d\n", pc, pcFis);
-                    System.out.println("Registradores:");
-                    for (int i = 0; i < reg.length; i++) {
-                        System.out.printf("  r[%2d]: %8d\n", i, reg[i]);
-                    }
-                    System.out.print("Instrução: ");
                     u.dump(ir);
-                    System.out.println("------------------------------------------------------------"); */
                 }
                 switch (ir.opc) {
+                    // ... (todos os cases de LDI a MULT permanecem iguais) ...
                     case LDI:
                         reg[ir.r1] = ir.p;
                         pc++;
@@ -253,8 +258,9 @@ public class Hardware {
                         irpt = Interrupts.intInstrucaoInvalida;
                         break;
                     case SYSCALL:
-                        sysCall.handle();
-                        pc++;
+                        // PASSO 3: A Syscall agora é tratada de forma assíncrona
+                        pc++; // IMPORTANTE: O PC DEVE avançar ANTES do handle salvar o contexto
+                        sysCall.handle(); // Agora o handle salvará o PC já incrementado (3, não 2)
                         break;
                     case STOP:
                         sysCall.stop();
@@ -270,10 +276,11 @@ public class Hardware {
                     irpt = Interrupts.intQuantumEnd;
                 }
             }
-            if (irpt != Interrupts.noInterrupt) {
-                ih.handle(irpt);
-                irpt = Interrupts.noInterrupt;
-            }
+            // Movido para o início do loop
+            // if (irpt != Interrupts.noInterrupt) {
+            //     ih.handle(irpt);
+            //     irpt = Interrupts.noInterrupt;
+            // }
         }
 
         public void stop() {
@@ -324,7 +331,8 @@ public class Hardware {
 
         public HW(int tamMem, int tamPag) {
             this.mem = new Memory(tamMem);
-            this.cpu = new CPU(this.mem, false, tamPag);
+            // CORREÇÃO (da nossa conversa anterior): Hardcoded 16 para corresponder ao SisOp.
+            this.cpu = new CPU(this.mem, false, 16); 
         }
     }
 }

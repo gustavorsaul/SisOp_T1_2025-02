@@ -8,86 +8,147 @@ public class Sistema {
     private Programs progs;
     private final int TAM_MEM = 1024;
     private final int QUANTUM = 4;
+    private Scanner mainScanner; // ÚNICO Scanner do sistema
+
+    // --- Variáveis de Sincronização de E/S ---
+    private final Object ioConsoleLock = new Object();
+    private volatile boolean isWaitingForIO = false; // volatile garante visibilidade entre threads
+    private volatile String ioInputBuffer = null;
+    private int ioProcessId = 0;
+    // --- Fim das Variáveis de Sincronização ---
 
     public Sistema() {
-        this.hw = new Hardware.HW(TAM_MEM, 16); 
-        this.so = new SisOp(hw);
+        this.mainScanner = new Scanner(System.in);
+        this.hw = new Hardware.HW(TAM_MEM, 16); // Corrigido
+        // Passa o 'this' (o próprio Sistema) para o SisOp
+        this.so = new SisOp(hw, this); 
         this.progs = new Programs();
     }
+
+    // Métodos para o DeviceManager (outra thread) usar
+    public Object getIoConsoleLock() {
+        return ioConsoleLock;
+    }
+
+    public void startWaitingForIO(int pcbId) {
+        this.isWaitingForIO = true;
+        this.ioProcessId = pcbId;
+        this.ioInputBuffer = null;
+    }
+
+    public String getIoInputBuffer() {
+        // Não modifica isWaitingForIO aqui, pois já foi limpo no run()
+        return this.ioInputBuffer;
+    }
+    // --- Fim dos métodos de E/S ---
 
     public void run() {
         System.out.println("Sistema Operacional iniciado em modo BLOQUEANTE.");
         System.out.println("Use 'execAll' para rodar processos ou 'thread2' para ativar o modo contínuo.");
         
-        Scanner scanner = new Scanner(System.in);
         while (true) {
-            System.out.print("> ");
-            String[] command = scanner.nextLine().trim().split("\\s+");
-            if (command.length == 0 || command[0].isEmpty()) continue;
+            try {
+                // Lógica de Sincronização de E/S
+                if (isWaitingForIO) {
+                    // Se o DeviceManager está esperando, mude o prompt e pegue o input para ele
+                    System.out.print("\n>>> Dispositivo de E/S: Processo " + ioProcessId + " requisita um valor de entrada. Digite um número: ");
+                    this.ioInputBuffer = mainScanner.nextLine();
+                    
+                    // Limpa a flag ANTES de acordar o DeviceManager
+                    // para evitar que o loop pegue o input novamente
+                    this.isWaitingForIO = false;
+                    
+                    // Acorda o DeviceManager
+                    synchronized (ioConsoleLock) {
+                        ioConsoleLock.notifyAll();
+                    }
+                    
+                    // NÃO continua o loop imediatamente - aguarda um ciclo
+                    // para dar tempo do DeviceManager processar
+                    Thread.sleep(50);
+                    
+                } else {
+                    // Loop de comando normal do Shell
+                    System.out.print("> ");
+                    String line = mainScanner.nextLine();
+                    String[] command = line.trim().split("\\s+");
+                    if (command.length == 0 || command[0].isEmpty()) continue;
 
-            switch (command[0].toLowerCase()) {
-                case "new":
-                    if (command.length > 1) 
-                        so.processManager.criaProcesso(progs.retrieveProgram(command[1]));
-                    else 
-                        System.out.println("Uso: new <nomeDoPrograma>");
-                    break;
-                case "rm":
-                    if (command.length > 1) 
-                        try { 
-                            so.processManager.desalocaProcesso(Integer.parseInt(command[1])); 
-                        } catch (NumberFormatException e) { 
-                            System.out.println("ID inválido."); 
-                        }
-                    else 
-                        System.out.println("Uso: rm <id>");
-                    break;
-                case "ps":
-                    so.processManager.listAllProcesses();
-                    break;
-                case "dump":
-                    if (command.length > 1) 
-                        try { 
-                            so.processManager.dumpProcess(Integer.parseInt(command[1])); 
-                        } catch (NumberFormatException e) { 
-                            System.out.println("ID inválido."); 
-                        }
-                    else 
-                        System.out.println("Uso: dump <id>");
-                    break;
-                case "dumpm":
-                    if (command.length > 2) 
-                        try { 
-                            so.utils.dump(Integer.parseInt(command[1]), Integer.parseInt(command[2])); 
-                        } catch (NumberFormatException e) { 
-                            System.out.println("Endereços inválidos."); 
-                        }
-                    else 
-                        System.out.println("Uso: dumpM <inicio> <fim>");
-                    break;
-                case "traceon":
-                    hw.cpu.setDebug(true); 
-                    System.out.println("Modo trace ativado.");
-                    break;
-                case "traceoff":
-                    hw.cpu.setDebug(false); 
-                    System.out.println("Modo trace desativado.");
-                    break;
-                case "help":
-                    System.out.println("Comandos: new <prog>, rm <id>, ps, dump <id>, dumpm <ini> <fim>, execall, thread2, traceon, traceoff, exit");
-                    break;
-                case "exit":
-                    scanner.close();
-                    System.exit(0);
-                    return;
-                case "execall":
-                    so.processManager.execAllBlocking(QUANTUM);
-                    break;
-                case "thread2":
-                    so.activateThreadedMode(QUANTUM);
-                    break;
-                default:
-                    System.out.println("Comando desconhecido: " + command[0]);
+                    switch (command[0].toLowerCase()) {
+                        case "new":
+                            if (command.length > 1) 
+                                so.processManager.criaProcesso(progs.retrieveProgram(command[1]));
+                            else 
+                                System.out.println("Uso: new <nomeDoPrograma>");
+                            break;
+                        case "rm":
+                            if (command.length > 1) 
+                                try { 
+                                    so.processManager.desalocaProcesso(Integer.parseInt(command[1])); 
+                                } catch (NumberFormatException e) { 
+                                    System.out.println("ID inválido."); 
+                                }
+                            else 
+                                System.out.println("Uso: rm <id>");
+                            break;
+                        case "ps":
+                            so.processManager.listAllProcesses();
+                            break;
+                        case "dump":
+                            if (command.length > 1) 
+                                try { 
+                                    so.processManager.dumpProcess(Integer.parseInt(command[1])); 
+                                } catch (NumberFormatException e) { 
+                                    System.out.println("ID inválido."); 
+                                }
+                            else 
+                                System.out.println("Uso: dump <id>");
+                            break;
+                        case "dumpm":
+                            if (command.length > 2) 
+                                try { 
+                                    so.utils.dump(Integer.parseInt(command[1]), Integer.parseInt(command[2])); 
+                                } catch (NumberFormatException e) { 
+                                    System.out.println("Endereços inválidos."); 
+                                }
+                            else 
+                                System.out.println("Uso: dumpM <inicio> <fim>");
+                            break;
+                        case "traceon":
+                            hw.cpu.setDebug(true); 
+                            System.out.println("Modo trace ativado.");
+                            break;
+                        case "traceoff":
+                            hw.cpu.setDebug(false); 
+                            System.out.println("Modo trace desativado.");
+                            break;
+                        case "help":
+                            System.out.println("Comandos: new <prog>, rm <id>, ps, dump <id>, dumpm <ini> <fim>, execall, thread2, traceon, traceoff, exit");
+                            break;
+                        case "exit":
+                            mainScanner.close();
+                            System.exit(0);
+                            return;
+                        case "execall":
+                            so.processManager.execAllBlocking(QUANTUM);
+                            break;
+                        case "thread2":
+                            so.activateThreadedMode(QUANTUM);
+                            break;
+                        default:
+                            System.out.println("Comando desconhecido: " + command[0]);
+                    }
+                }
+                } catch (InterruptedException e) {
+                // Interrupção durante o sleep após E/S
+                System.out.println("Thread principal interrompida.");
+            } catch (Exception e) {
+                // Captura exceções (como fechar o scanner) para evitar que o shell morra
+                System.out.println("Erro no shell: " + e.getMessage());
+                if (e instanceof java.util.NoSuchElementException) {
+                    System.out.println("Encerrando sistema.");
+                    System.exit(1);
+                }
             }
         }
     }
@@ -112,18 +173,24 @@ public class Sistema {
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
+                    // Espera por processos na fila de prontos
                     synchronized (so.processManager.getSchedulerLock()) {
                         while (so.processManager.getReadyQueue().isEmpty() && so.processManager.getRunningProcess() == null) {
                             so.processManager.getSchedulerLock().wait();
                         }
+                        // Se CPU está ociosa, escalona o próximo
                         if (so.processManager.getRunningProcess() == null && !so.processManager.getReadyQueue().isEmpty()) {
                             so.processManager.escalonar(false);
                         }
                     }
+                    
+                    // Se a CPU tem um processo, executa por um quantum
                     if (so.processManager.getRunningProcess() != null) {
                         so.hw.cpu.step(this.quantum);
                     }
-                    Thread.sleep(1000);
+                    
+                    // Dorme por um curto período para simular o "relógio"
+                    Thread.sleep(100); // 100ms
                 } catch (InterruptedException e) {
                     System.out.println("Thread do escalonador interrompida. Encerrando.");
                     Thread.currentThread().interrupt();
@@ -132,6 +199,7 @@ public class Sistema {
         }
     }
 
+    // Classe de Programas ( permanece idêntica )
     public static class Programs {
         public class Program {
             public String name;
@@ -311,7 +379,6 @@ public class Sistema {
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1), // POS 41
-                    new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),
                     new Hardware.Word(Hardware.CPU.Opcode.DATA, -1, -1, -1),

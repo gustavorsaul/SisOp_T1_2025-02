@@ -8,7 +8,9 @@ import java.util.Queue;
 public class SisOp_ProcessManager {
 
     public enum ProcessState {
-        READY, RUNNING, TERMINATED
+        READY, RUNNING, TERMINATED,
+        // PASSO 1: Adicionado estado de bloqueio
+        BLOCKED
     }
 
     public static class PCB {
@@ -37,6 +39,8 @@ public class SisOp_ProcessManager {
 
     private List<PCB> pcbList;
     private Queue<PCB> readyQueue;
+    // PASSO 1: Fila para processos bloqueados
+    private Queue<PCB> blockedQueue;
     private PCB runningProcess;
     private int nextProcessId;
     private final Object schedulerLock = new Object();
@@ -47,12 +51,15 @@ public class SisOp_ProcessManager {
         this.so = so;
         this.pcbList = new ArrayList<>();
         this.readyQueue = new LinkedList<>();
+        // PASSO 1: Inicializa a fila de bloqueados
+        this.blockedQueue = new LinkedList<>();
         this.runningProcess = null;
         this.nextProcessId = 1;
     }
 
     public PCB getRunningProcess() { return runningProcess; }
     public Queue<PCB> getReadyQueue() { return readyQueue; }
+    public Queue<PCB> getBlockedQueue() { return blockedQueue; }
     public Object getSchedulerLock() { return schedulerLock; }
 
     public void execAllBlocking(int quantum) {
@@ -65,9 +72,17 @@ public class SisOp_ProcessManager {
             return;
         }
         System.out.println("---------------------------------- Iniciando execução BLOQUEANTE de processos");
-        escalonar(false);
-        while (runningProcess != null) {
-            so.hw.cpu.step(quantum);
+        // Loop de execução bloqueante
+        while (runningProcess != null || !readyQueue.isEmpty()) {
+            if (runningProcess == null) {
+                escalonar(false);
+            }
+            if (runningProcess != null) {
+                so.hw.cpu.step(quantum);
+            }
+            // NOTA: Em modo bloqueante, a E/S será efetivamente bloqueante 
+            // pois não há outra thread (DeviceManager) para processá-la.
+            // O modo 'thread2' é necessário para a concorrência.
         }
         System.out.println("---------------------------------- Todos os processos terminaram (modo bloqueante).");
     }
@@ -105,6 +120,8 @@ public class SisOp_ProcessManager {
             so.gm.desaloca(pcb.getPageTable());
             pcbList.remove(pcb);
             readyQueue.remove(pcb);
+            // Atualizado para remover da fila de bloqueados também
+            blockedQueue.remove(pcb); 
             if (runningProcess != null && runningProcess.getId() == id) {
                 runningProcess = null;
                 terminaProcessoAtual();
@@ -123,27 +140,35 @@ public class SisOp_ProcessManager {
     public void escalonar(boolean processoTerminou) {
         synchronized (schedulerLock) {
             if (runningProcess != null && !processoTerminou) {
+                // Processo não terminou, foi preempção (quantum)
                 runningProcess.setContext(so.hw.cpu.getContextPC(), so.hw.cpu.getContextRegs());
                 runningProcess.setState(ProcessState.READY);
                 readyQueue.add(runningProcess);
-                System.out.println("Processo " + runningProcess.getId() + " salvo e movido para a fila de prontos.\n");
+                System.out.println("Processo " + runningProcess.getId() + " salvo (quantum) e movido para a fila de prontos.\n");
             }
+
             if (readyQueue.isEmpty()) {
                 runningProcess = null;
-                so.hw.cpu.stop();
+                so.hw.cpu.stop(); // Para a CPU se não houver ninguém pronto
                 if (so.getMode() == SisOp.ExecutionMode.BLOCKING) {
                     System.out.println("---------------------------------- Fila de prontos vazia. Fim do 'execAll'.");
                 } else {
+                    // No modo threaded, a CPU espera (o escalonador vai para 'wait')
                     System.out.println("---------------------------------- Fila de prontos vazia. CPU em espera.");
                 }
                 return;
             }
+
+            // Pega o próximo processo da fila de prontos
             runningProcess = readyQueue.poll();
             runningProcess.setState(ProcessState.RUNNING);
+            
+            // Restaura o contexto do processo na CPU
             so.hw.cpu.setContext(runningProcess.getPc(), runningProcess.getRegistradores());
             so.hw.cpu.setMMU(runningProcess.getPageTable());
             so.hw.cpu.resetInstructionCounter();
-            so.hw.cpu.start();
+            so.hw.cpu.start(); // Liga a CPU para executar
+            
             System.out.println(">>> Assumindo CPU: Processo " + runningProcess.getId());
         }
     }
@@ -157,7 +182,52 @@ public class SisOp_ProcessManager {
             so.gm.desaloca(runningProcess.getPageTable());
             pcbList.remove(runningProcess);
             runningProcess = null;
+            // Escalonar, sinalizando que o processo terminou (não volta pra fila)
+            escalonar(true); 
+        }
+    }
+
+    // PASSO 3: Método chamado pela SYSCALL de E/S
+    public void blockCurrentProcess() {
+        synchronized (schedulerLock) {
+            if (runningProcess == null) return;
+
+            // NOTA: O contexto JÁ foi salvo no SysCallHandling.handle() 
+            // antes de chamar este método, então NÃO salvamos novamente aqui
+            // para evitar sobrescrever o PC já avançado
+            
+            // 1. Muda o estado para BLOQUEADO
+            runningProcess.setState(ProcessState.BLOCKED);
+            // 2. Adiciona na fila de bloqueados
+            blockedQueue.add(runningProcess);
+
+            System.out.println("Processo " + runningProcess.getId() + " BLOQUEADO esperando E/S.");
+
+            // 3. Libera a CPU
+            runningProcess = null;
+            // 4. Chama o escalonador (como se o processo tivesse terminado)
             escalonar(true);
+        }
+    }
+
+    // PASSO 4: Método chamado pela Interrupção de E/S
+    public void unblockProcess(PCB pcb) {
+        synchronized (schedulerLock) {
+            if (pcb == null) return;
+            
+            // 1. Remove da fila de bloqueados
+            blockedQueue.remove(pcb);
+            // 2. Muda o estado para PRONTO
+            pcb.setState(ProcessState.READY);
+            // 3. Adiciona na fila de prontos
+            readyQueue.add(pcb);
+            
+            System.out.println("Processo " + pcb.getId() + " DESBLOQUEADO. E/S concluída.");
+
+            // 4. Acorda a thread do escalonador (SchedulerExecutor) se ela estiver dormindo
+            if (so.getMode() == SisOp.ExecutionMode.THREADED) {
+                schedulerLock.notifyAll();
+            }
         }
     }
 

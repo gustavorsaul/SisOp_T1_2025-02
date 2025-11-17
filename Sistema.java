@@ -5,7 +5,7 @@ public class Sistema {
     private Hardware.HW hw;
     private SisOp so;
     private Programs progs;
-    private final int TAM_MEM = 1024;
+    private final int TAM_MEM = 64;
     private final int QUANTUM = 4;
     private Scanner mainScanner;
 

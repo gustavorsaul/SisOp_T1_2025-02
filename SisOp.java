@@ -9,6 +9,7 @@ import java.io.PrintWriter;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 
+// Classe principal do Sistema Operacional.
 public class SisOp {
     
     public Hardware.HW hw;
@@ -65,7 +66,10 @@ public class SisOp {
         System.out.println("Modo de execução contínuo (threaded) ativado.");
     }
 
+    // --- CLASSES INTERNAS ---
+
     public class Utilities {
+        // ... (inalterado) ...
         private Hardware.HW hw;
         public Utilities(Hardware.HW hw) { this.hw = hw; }
         public void loadPage(Hardware.Word[] program, int frame, int page) {
@@ -94,9 +98,7 @@ public class SisOp {
             }
             return pageData;
         }
-        public void dump(Hardware.Word w) { 
-            System.out.print("[ " + w.opc + ", " + w.r1 + ", " + w.r2 + ", " + w.p + " ]"); 
-        }
+        public void dump(Hardware.Word w) { System.out.print("[ " + w.opc + ", " + w.r1 + ", " + w.r2 + ", " + w.p + " ]"); }
         public void dump(int ini, int fim) {
             for (int i = ini; i < fim; i++) {
                 System.out.print(i + ":  ");
@@ -107,12 +109,11 @@ public class SisOp {
     }
     
     public class InterruptHandling {
+        // ... (inalterado) ...
         private SisOp so;
         private SisOp_ProcessManager.PCB lastIOProcess; 
         public InterruptHandling(SisOp so) { this.so = so; }
-        public void setLastIOProcess(SisOp_ProcessManager.PCB pcb) {
-            this.lastIOProcess = pcb;
-        }
+        public void setLastIOProcess(SisOp_ProcessManager.PCB pcb) { this.lastIOProcess = pcb; }
         public void handle(Hardware.CPU.Interrupts irpt) {
             SisOp_ProcessManager.PCB pcb = so.processManager.getRunningProcess();
             switch (irpt) {
@@ -150,6 +151,7 @@ public class SisOp {
     }
 
     public class SysCallHandling {
+        // ... (inalterado) ...
         private SisOp so;
         public SysCallHandling(SisOp so) { this.so = so; }
         public void stop() { 
@@ -185,8 +187,9 @@ public class SisOp {
     }
 
     public class IORequest {
+        // ... (inalterado) ...
         public SisOp_ProcessManager.PCB pcb;
-        public int operation;
+        public int operation; // 1 = READ, 2 = WRITE
         public int address;
         public IORequest(SisOp_ProcessManager.PCB pcb, int operation, int address) {
             this.pcb = pcb; this.operation = operation; this.address = address;
@@ -194,6 +197,7 @@ public class SisOp {
     }
 
     public class DeviceManager implements Runnable {
+        // ... (inalterado) ...
         private SisOp so;
         private Queue<IORequest> requestQueue;
         private final Object ioQueueLock = new Object(); 
@@ -204,7 +208,7 @@ public class SisOp {
         public void addRequest(IORequest request) {
             synchronized (ioQueueLock) {
                 requestQueue.add(request);
-                ioQueueLock.notify();
+                ioQueueLock.notify(); 
             }
         }
         @Override
@@ -220,8 +224,8 @@ public class SisOp {
                 System.out.println("--- Dispositivo de E/S: Iniciando operação " + 
                                    (currentRequest.operation == 1 ? "READ" : "WRITE") + 
                                    " para o Processo " + currentRequest.pcb.getId() + " ---");
-                try { Thread.sleep(1000); } catch (InterruptedException e) {}
-                if (currentRequest.operation == 1) {
+                try { Thread.sleep(1000); } catch (InterruptedException e) {} 
+                if (currentRequest.operation == 1) { 
                     Sistema host = so.getSistemaHost();
                     Object hostLock = host.getIoConsoleLock();
                     int valor = 0;
@@ -243,7 +247,7 @@ public class SisOp {
                     int logicalAddr = currentRequest.address;
                     int pag = logicalAddr / so.TAM_PAG;
                     int off = logicalAddr % so.TAM_PAG;
-                    int endFis = -1;
+                    int endFis = -1; 
                     if (pag >= 0 && pag < pcbPageTable.length && pcbPageTable[pag].valid) {
                         int frame = pcbPageTable[pag].frameNumber;
                         endFis = (frame * so.TAM_PAG) + off;
@@ -254,7 +258,7 @@ public class SisOp {
                     } else {
                         System.out.println("--- Dispositivo de E/S: ERRO! Tradução de endereço falhou (página " + pag + " não é válida?). ---");
                     }
-                } else if (currentRequest.operation == 2) {
+                } else if (currentRequest.operation == 2) { 
                     Hardware.PageTableEntry[] pcbPageTable = currentRequest.pcb.getPageTable();
                     int logicalAddr = currentRequest.address;
                     int pag = logicalAddr / so.TAM_PAG;
@@ -276,9 +280,11 @@ public class SisOp {
         }
     }
 
+    // --- MUDANÇA (VITIMIZAÇÃO) ---
     public class VMManager {
         private SisOp so;
         public VMManager(SisOp so) { this.so = so; }
+
         public void handlePageFault(SisOp_ProcessManager.PCB pcb, int page) {
             System.out.println("--- VMManager: Tratando Page Fault para Processo " + pcb.getId() + ", Página " + page + " ---");
             int frame = so.gm.findFreeFrame();
@@ -291,14 +297,19 @@ public class SisOp {
                 System.out.println("--- VMManager: Nenhum frame livre. Iniciando vitimização.");
                 int victimFrame = so.gm.selectVictimFrame();
                 SisOp_GM.FrameInfo victimInfo = so.gm.getFrameInfo(victimFrame);
-                if (victimInfo == null) {
-                    System.out.println("--- VMManager: ERRO! Vitimização falhou (frame nulo).");
+                if (victimInfo == null || victimInfo.waiter != null) {
+                    System.out.println("--- VMManager: ERRO! Vitimização falhou (vítima inválida ou já esperando).");
+                    so.processManager.blockCurrentProcess("Page_Fault_Falha"); // Bloqueia mesmo assim
                     return;
                 }
                 System.out.println("--- VMManager: Frame " + victimFrame + " (Processo " + victimInfo.pcb.getId() + ", Página " + victimInfo.pageNumber + ") foi vitimado.");
                 victimInfo.pcb.getPageTable()[victimInfo.pageNumber].valid = false;
                 victimInfo.pcb.getPageTable()[victimInfo.pageNumber].onDisk = true;
-                so.gm.setWaiter(victimFrame, pcb);
+                
+                // --- CORREÇÃO ---
+                // Informa ao GM que o pcb atual está esperando por este frame, para a página 'page'
+                so.gm.setWaiter(victimFrame, pcb, page);
+                
                 so.diskManager.requestSave(victimInfo.pcb, victimInfo.pageNumber, victimFrame);
                 so.processManager.blockCurrentProcess("Page_Fault_Vitima");
             }
@@ -306,6 +317,7 @@ public class SisOp {
     }
     
     public class DiskRequest {
+        // ... (inalterado) ...
         public enum OpType { LOAD_FROM_PROG, LOAD_FROM_SWAP, SAVE_TO_SWAP }
         public OpType type;
         public SisOp_ProcessManager.PCB pcb;
@@ -321,12 +333,13 @@ public class SisOp {
         }
     }
 
+    // --- MUDANÇA (VITIMIZAÇÃO) ---
     public class DiskManager implements Runnable {
         private SisOp so;
         private Queue<DiskRequest> diskQueue;
         private final Object diskLock = new Object();
-        private Map<Integer, Hardware.Word[]> programStore;
-        private Map<String, Hardware.Word[]> swapStore;
+        private Map<Integer, Hardware.Word[]> programStore; 
+        private Map<String, Hardware.Word[]> swapStore;      
         public DiskManager(SisOp so) {
             this.so = so;
             this.diskQueue = new LinkedList<>();
@@ -351,7 +364,9 @@ public class SisOp {
         public void saveProgramToStore(int progId, Hardware.Word[] program) {
             programStore.put(progId, program);
         }
-        public void clearSwap(int pcbId) { }
+        public void clearSwap(int pcbId) {
+            // Em uma implementação real, iteraríamos e removeríamos chaves pcbId_*
+        }
         @Override
         public void run() {
             while (true) {
@@ -362,7 +377,7 @@ public class SisOp {
                     }
                     req = diskQueue.poll();
                 }
-                try { Thread.sleep(200); } catch (InterruptedException e) {}
+                try { Thread.sleep(200); } catch (InterruptedException e) {} 
                 switch (req.type) {
                     case LOAD_FROM_PROG:
                         System.out.println("--- DiskManager: LOAD (Programa) P" + req.pcb.getId() + ", Pag " + req.page + " -> Frame " + req.frame + " CONCLUÍDO.");
@@ -377,7 +392,7 @@ public class SisOp {
                         String swapKey = req.pcb.getId() + "_" + req.page;
                         Hardware.Word[] pageData = swapStore.get(swapKey);
                         if (pageData != null) {
-                            so.utils.loadPage(pageData, req.frame, 0);
+                            so.utils.loadPage(pageData, req.frame, 0); 
                             swapStore.remove(swapKey); 
                         }
                         req.pcb.getPageTable()[req.page].valid = true;
@@ -390,17 +405,15 @@ public class SisOp {
                         Hardware.Word[] dataToSave = so.utils.savePage(req.frame);
                         String key = req.pcb.getId() + "_" + req.page;
                         swapStore.put(key, dataToSave);
+                        
                         SisOp_GM.FrameInfo info = so.gm.getFrameInfo(req.frame);
                         if (info != null && info.waiter != null) {
                             SisOp_ProcessManager.PCB waiterPcb = info.waiter;
-                            int waiterPage = -1;
-                            for(int p=0; p < waiterPcb.getPageTable().length; p++) {
-                                if (!waiterPcb.getPageTable()[p].valid && !waiterPcb.getPageTable()[p].onDisk) {
-                                    waiterPage = p;
-                                    break;
-                                }
-                            }
-                            if (waiterPage == -1) waiterPage = 0;
+                            
+                            // --- CORREÇÃO ---
+                            // Pega a página que o waiter precisava (salva no FrameInfo)
+                            int waiterPage = info.waiterPage;
+                            
                             System.out.println("--- DiskManager: Frame " + req.frame + " está livre. Acordando P" + waiterPcb.getId() + " para carregar Pag " + waiterPage);
                             so.gm.occupyFrame(req.frame, waiterPcb, waiterPage);
                             requestLoad(waiterPcb, waiterPage, req.frame);
@@ -414,10 +427,10 @@ public class SisOp {
     }
     
     public class Logger {
+        // ... (inalterado, com a formatação de alinhamento) ...
         private PrintWriter logFile;
         private String logFileName;
         private String logFormat;
-
         public Logger() {
             try {
                 String diretorio = "logs";
@@ -435,23 +448,18 @@ public class SisOp {
                 }
                 String nomeArquivo = "log_" + new DecimalFormat("000").format(proximoNumero) + ".txt";
                 File arquivoLog = new File(pasta, nomeArquivo);
-                
                 this.logFile = new PrintWriter(new FileWriter(arquivoLog), true);
                 this.logFileName = nomeArquivo;
-                
                 this.logFormat = "%-5s %-15s %-20s %-12s %-12s %s";
-                
                 this.logFile.println(String.format(this.logFormat, 
                     "ID", "NOME_PROG", "MOTIVO", "ESTADO_ANT", "ESTADO_NOVO", "TABELA_PAGINAS"
                 ));
                 System.out.println("Sistema de Log iniciado. Gravando em: " + nomeArquivo);
-                
             } catch (IOException e) {
                 System.out.println("ERRO CRÍTICO: Não foi possível iniciar o Logger.");
                 e.printStackTrace();
             }
         }
-
         private String formatPageTable(Hardware.PageTableEntry[] table) {
             StringBuilder sb = new StringBuilder("{ ");
             for (int i = 0; i < table.length; i++) {
@@ -470,17 +478,13 @@ public class SisOp {
             sb.append(" }");
             return sb.toString();
         }
-
         public void log(int id, String progName, String reason, String initialState, String nextState, Hardware.PageTableEntry[] pageTable) {
             if (this.logFile == null) return;
-            
             String tableStr = formatPageTable(pageTable);
-            
             this.logFile.println(String.format(this.logFormat,
                 Integer.toString(id), progName, reason, initialState, nextState, tableStr
             ));
         }
-
         public void close() {
             if (this.logFile != null) {
                 System.out.println("Fechando arquivo de log: " + this.logFileName);

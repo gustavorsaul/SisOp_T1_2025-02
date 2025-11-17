@@ -4,6 +4,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
+// Gerencia todos os aspectos dos processos.
 public class SisOp_ProcessManager {
 
     public enum ProcessState {
@@ -28,7 +29,6 @@ public class SisOp_ProcessManager {
             this.programId = programId;
             this.programName = programName;
         }
-
         public int getId() { return id; }
         public void setContext(int pc, int[] regs) { this.pc = pc; this.registradores = Arrays.copyOf(regs, regs.length); }
         public int getPc() { return pc; }
@@ -84,6 +84,7 @@ public class SisOp_ProcessManager {
         System.out.println("---------------------------------- Todos os processos terminaram (modo bloqueante).");
     }
 
+    // --- MÉTODO CENTRAL DA CORREÇÃO ---
     public int criaProcesso(Hardware.Word[] programa, String progName) {
         synchronized (schedulerLock) {
             if (programa == null) {
@@ -92,34 +93,70 @@ public class SisOp_ProcessManager {
             }
             
             Hardware.PageTableEntry[] tabelaPaginas = so.gm.createPageTable(programa.length);
-
             PCB pcb = new PCB(nextProcessId++, tabelaPaginas, -1, progName); 
             pcb.programId = pcb.getId(); 
 
             so.diskManager.saveProgramToStore(pcb.getProgramId(), programa);
 
+            // --- LÓGICA DE ALOCAÇÃO/VITIMIZAÇÃO ---
             int frame = so.gm.findFreeFrame();
+            
             if (frame == -1) {
-                System.out.println("Erro: Memória insuficiente para carregar a página 0.");
-                return -1;
+                // --- INÍCIO DA CORREÇÃO (VITIMIZAÇÃO NA CRIAÇÃO) ---
+                System.out.println("--- criaProcesso: RAM cheia. Iniciando vitimização para P" + pcb.getId() + " (Página 0)");
+                int victimFrame = so.gm.selectVictimFrame();
+                SisOp_GM.FrameInfo victimInfo = so.gm.getFrameInfo(victimFrame);
+                
+                if (victimInfo == null || victimInfo.waiter != null) {
+                    System.out.println("Erro Crítico: Vitimização falhou (vítima inválida ou já esperando).");
+                    // Limpa o PCB recém-criado, pois falhou
+                    so.diskManager.clearSwap(pcb.getId()); // Limpa o programStore
+                    return -1;
+                }
+                
+                System.out.println("--- criaProcesso: Frame " + victimFrame + " (Processo " + victimInfo.pcb.getId() + ", Página " + victimInfo.pageNumber + ") foi vitimado.");
+
+                // 1. Marca a página da vítima como "em disco"
+                victimInfo.pcb.getPageTable()[victimInfo.pageNumber].valid = false;
+                victimInfo.pcb.getPageTable()[victimInfo.pageNumber].onDisk = true;
+                
+                // 2. Define o NOVO processo (pcb) como "esperando" por este frame, para sua Página 0
+                so.gm.setWaiter(victimFrame, pcb, 0); // <-- O waiter quer a página 0
+                
+                // 3. Salva a página da vítima no disco (assíncrono)
+                so.diskManager.requestSave(victimInfo.pcb, victimInfo.pageNumber, victimFrame);
+                
+                // 4. Coloca o novo processo na lista, mas na fila de BLOQUEADOS
+                pcbList.add(pcb);
+                blockedQueue.add(pcb);
+                pcb.setState(ProcessState.BLOCKED);
+                
+                // 5. Loga
+                so.logger.log(pcb.getId(), pcb.getProgramName(), "criacao_vitim", "NULO", "BLOQUEADO", pcb.getPageTable());
+                
+                // 6. Retorna (o processo não está pronto para rodar)
+                return pcb.getId();
+
+            } else {
+                // --- FIM DA CORREÇÃO ---
+                // (Caso normal: Havia um frame livre)
+                so.gm.occupyFrame(frame, pcb, 0);
+                tabelaPaginas[0].valid = true;
+                tabelaPaginas[0].frameNumber = frame;
+
+                so.utils.loadPage(programa, frame, 0);
+
+                pcbList.add(pcb);
+                readyQueue.add(pcb);
+                System.out.println("Processo " + pcb.getId() + " ("+progName+") criado. Página 0 carregada no frame " + frame + ".");
+
+                so.logger.log(pcb.getId(), pcb.getProgramName(), "criacao", "NULO", "PRONTO", pcb.getPageTable());
+
+                if (so.getMode() == SisOp.ExecutionMode.THREADED) {
+                    schedulerLock.notifyAll();
+                }
+                return pcb.getId();
             }
-
-            so.gm.occupyFrame(frame, pcb, 0);
-            tabelaPaginas[0].valid = true;
-            tabelaPaginas[0].frameNumber = frame;
-
-            so.utils.loadPage(programa, frame, 0);
-
-            pcbList.add(pcb);
-            readyQueue.add(pcb);
-            System.out.println("Processo " + pcb.getId() + " ("+progName+") criado. Página 0 carregada no frame " + frame + ".");
-
-            so.logger.log(pcb.getId(), pcb.getProgramName(), "criacao", "NULO", "PRONTO", pcb.getPageTable());
-
-            if (so.getMode() == SisOp.ExecutionMode.THREADED) {
-                schedulerLock.notifyAll();
-            }
-            return pcb.getId();
         }
     }
 
@@ -154,7 +191,7 @@ public class SisOp_ProcessManager {
     public void escalonar(boolean processoTerminou) {
         synchronized (schedulerLock) {
             if (runningProcess != null && !processoTerminou) {
-                PCB preemptedPcb = runningProcess;
+                PCB preemptedPcb = runningProcess; 
                 runningProcess.setContext(so.hw.cpu.getContextPC(), so.hw.cpu.getContextRegs());
                 runningProcess.setState(ProcessState.READY);
                 readyQueue.add(runningProcess);
@@ -170,6 +207,7 @@ public class SisOp_ProcessManager {
                     System.out.println("---------------------------------- Fila de prontos vazia. Fim do 'execAll'.");
                 } else {
                     System.out.println("---------------------------------- Fila de prontos vazia. CPU em espera.");
+                    System.out.print("> "); 
                 }
                 return;
             }
@@ -193,7 +231,7 @@ public class SisOp_ProcessManager {
             if (runningProcess == null)
                 return;
 
-            PCB terminatedPcb = runningProcess;
+            PCB terminatedPcb = runningProcess; 
             System.out.println("Processo " + terminatedPcb.getId() + " terminou.");
             terminatedPcb.setState(ProcessState.TERMINATED);
             
@@ -211,16 +249,11 @@ public class SisOp_ProcessManager {
     public void blockCurrentProcess(String reason) {
         synchronized (schedulerLock) {
             if (runningProcess == null) return;
-            
-            PCB pcb = runningProcess;
-
+            PCB pcb = runningProcess; 
             so.logger.log(pcb.getId(), pcb.getProgramName(), reason, "EXECUTANDO", "BLOQUEADO", pcb.getPageTable());
-            
             pcb.setState(ProcessState.BLOCKED);
             blockedQueue.add(pcb);
-
             System.out.println("Processo " + pcb.getId() + " BLOQUEADO. Motivo: " + reason);
-
             runningProcess = null;
             escalonar(true);
         }
@@ -229,17 +262,16 @@ public class SisOp_ProcessManager {
     public void unblockProcess(PCB pcb, String reason) {
         synchronized (schedulerLock) {
             if (pcb == null) return;
-            
             so.logger.log(pcb.getId(), pcb.getProgramName(), reason, "BLOQUEADO", "PRONTO", pcb.getPageTable());
-
             blockedQueue.remove(pcb);
             pcb.setState(ProcessState.READY);
             readyQueue.add(pcb);
-            
             System.out.println("Processo " + pcb.getId() + " DESBLOQUEADO. Motivo: " + reason);
-
             if (so.getMode() == SisOp.ExecutionMode.THREADED) {
                 schedulerLock.notifyAll();
+            }
+            if (so.getMode() == SisOp.ExecutionMode.THREADED && runningProcess == null) {
+                System.out.print("> ");
             }
         }
     }

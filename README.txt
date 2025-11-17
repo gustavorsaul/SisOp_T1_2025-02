@@ -6,9 +6,9 @@ README - Simulador de SO
 1. Nomes dos Integrantes
 --------------------------------
 
-- [Nome do Integrante 1]
-- [Nome do Integrante 2]
-- [etc.]
+- Gaya Pizoli
+- Gustavo Saul
+- João Graboski
 
 --------------------------------
 2. Implementação
@@ -80,7 +80,8 @@ Teste: fatorialV2
 
 ---
 Teste: progMinimo
-    * Descrição:** Apenas escreve 999 em algumas posições de memória (8 a 12) e para.
+    * Descrição:
+        Apenas escreve 999 em algumas posições de memória (8 a 12) e para.
     * Como Executar:
         Digite: "thread2"
         Digite: "new progMinimo"
@@ -106,7 +107,7 @@ Teste: fibonacci10 (ou fibonacci10v2)
 
 ---
 Teste: fibonacciREAD
-    * Descrição: ]
+    * Descrição: 
         Teste principal de funcionamento das implementações no programa. 
         Pede um número 'N' ao usuário, calcula fib(N) e salva a sequência na memória (a partir do endereço 41).
     * Como Executar:

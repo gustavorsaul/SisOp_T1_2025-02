@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator; 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -7,29 +8,58 @@ import java.util.Queue;
 // Gerencia todos os aspectos dos processos.
 public class SisOp_ProcessManager {
 
-    public enum ProcessState {
-        READY, RUNNING, TERMINATED
+    // Estrutura de uma Entrada na Tabela de Paginas
+    public static class PageTableEntry {
+        public int frameNumber = -1;
+        public boolean valid = false;
+        public boolean dirty = false;
+        public int diskAddress = -1;
     }
 
+    // Classe 'container' para retornar informações sobre a vítima
+    public class VictimInfo {
+        public PCB pcbOwner;        
+        public int pageNumber;      
+        public PageTableEntry pte;  
+
+        public VictimInfo(PCB pcb, int pageNum, PageTableEntry pte) {
+            this.pcbOwner = pcb;
+            this.pageNumber = pageNum;
+            this.pte = pte;
+        }
+    }
+
+    public enum ProcessState {
+        READY, RUNNING, BLOCKED,TERMINATED
+    }
+
+    // Process Control Block
     public static class PCB {
         private int id;
         private int pc;
-        private int[] pageTable;
+        private PageTableEntry[] pageTable;
         private int[] registradores;
         private ProcessState state;
+        private String programName;
 
-        public PCB(int id, int[] pageTable) {
+       public PCB(int id, int numPaginas, String programName) {
             this.id = id;
             this.pc = 0;
-            this.pageTable = pageTable;
             this.state = ProcessState.READY;
             this.registradores = new int[10];
-        }
+            this.programName = programName;
 
+            this.pageTable = new PageTableEntry[numPaginas];
+            for (int i = 0; i < numPaginas; i++) {
+                this.pageTable[i] = new PageTableEntry();
+            }
+        }
+        
+        public String getProgramName() { return this.programName; }
         public int getId() { return id; }
         public void setContext(int pc, int[] regs) { this.pc = pc; this.registradores = Arrays.copyOf(regs, regs.length); }
         public int getPc() { return pc; }
-        public int[] getPageTable() { return pageTable; }
+        public PageTableEntry[] getPageTable() { return pageTable; }
         public int[] getRegistradores() { return registradores; }
         public ProcessState getState() { return state; }
         public void setState(ProcessState state) { this.state = state; }
@@ -37,6 +67,8 @@ public class SisOp_ProcessManager {
 
     private List<PCB> pcbList;
     private Queue<PCB> readyQueue;
+    private Queue<PCB> blockedQueue;     // Fila de espera do Console
+    private Queue<PCB> blockedVMQueue;   // Fila de espera do Disco (VM)
     private PCB runningProcess;
     private int nextProcessId;
     private final Object schedulerLock = new Object();
@@ -47,6 +79,8 @@ public class SisOp_ProcessManager {
         this.so = so;
         this.pcbList = new ArrayList<>();
         this.readyQueue = new LinkedList<>();
+        this.blockedQueue = new LinkedList<>();
+        this.blockedVMQueue = new LinkedList<>();
         this.runningProcess = null;
         this.nextProcessId = 1;
     }
@@ -72,26 +106,125 @@ public class SisOp_ProcessManager {
         System.out.println("---------------------------------- Todos os processos terminaram (modo bloqueante).");
     }
 
-    public int criaProcesso(Hardware.Word[] programa) {
+    public int criaProcesso(Hardware.Word[] programa, String programName) {
         synchronized (schedulerLock) {
-            if (programa == null) {
-                System.out.println("Erro: Programa não encontrado.");
-                return -1;
+        if (programa == null) {
+                    System.out.println("Erro: Programa não encontrado.");
+                    return -1;
+                }
+
+        int numPaginas = (programa.length + so.TAM_PAG - 1) / so.TAM_PAG;
+            if (numPaginas == 0) numPaginas = 1;
+
+        PCB pcb = new PCB(nextProcessId++, numPaginas, programName);;
+
+        int frameParaPagina0 = so.gm.alocaFrameLivre();
+
+        if (frameParaPagina0 < 0) {
+            System.out.println("Erro: Falha de alocação de memória (sem frames livres para página 0).");
+            return -1; 
+        }
+
+        pcb.getPageTable()[0].frameNumber = frameParaPagina0;
+        pcb.getPageTable()[0].valid = true;
+        pcb.getPageTable()[0].dirty = false;
+
+        so.utils.loadPage(programa, 0, frameParaPagina0, so.TAM_PAG);
+
+        pcbList.add(pcb);
+        readyQueue.add(pcb);
+        System.out.println("Processo " + pcb.getId() + " criado. (Página 0 carregada no Frame " + frameParaPagina0 + ")");
+
+        if (so.getMode() == SisOp.ExecutionMode.THREADED) {
+            schedulerLock.notifyAll();
+        }
+        return pcb.getId();
+        }
+    }
+
+    public void bloqueiaProcessoAtual() {
+        synchronized (schedulerLock) {
+            if (runningProcess == null) return;
+
+            System.out.println("Processo " + runningProcess.getId() + " BLOQUEADO esperando I/O.");
+            runningProcess.setContext(so.hw.cpu.getContextPC(), so.hw.cpu.getContextRegs());
+            runningProcess.setState(ProcessState.BLOCKED);
+
+            blockedQueue.add(runningProcess); 
+            runningProcess = null;
+            escalonar(true); 
+        }
+    }
+
+    public void bloqueiaProcessoVM() {
+        synchronized (schedulerLock) {
+            if (runningProcess == null) return;
+
+            System.out.println("Processo " + runningProcess.getId() + " BLOQUEADO esperando DISCO-VM.");
+            runningProcess.setContext(so.hw.cpu.getContextPC(), so.hw.cpu.getContextRegs());
+            runningProcess.setState(ProcessState.BLOCKED);
+
+            blockedVMQueue.add(runningProcess); 
+            runningProcess = null;
+            escalonar(true); 
+        }
+    }
+
+    public void desbloqueiaProcesso(int id) {
+        synchronized (schedulerLock) {
+            PCB pcb = null;
+            Iterator<PCB> it = blockedQueue.iterator();
+            while (it.hasNext()) {
+                PCB p = it.next();
+                if (p.getId() == id) {
+                    pcb = p;
+                    it.remove(); 
+                    break;
+                }
             }
-            int[] tabelaPaginas = so.gm.aloca(programa.length);
-            if (tabelaPaginas == null) {
-                System.out.println("Erro: Falha de alocação de memória.");
-                return -1;
+
+            if (pcb == null) {
+                System.out.println("AVISO: ProcessManager não encontrou P" + id + " na fila de bloqueados para desbloquear.");
+                return;
             }
-            PCB pcb = new PCB(nextProcessId++, tabelaPaginas);
-            so.utils.loadProgram(programa, pcb.getPageTable(), so.TAM_PAG);
-            pcbList.add(pcb);
-            readyQueue.add(pcb);
-            System.out.println("Processo " + pcb.getId() + " criado e pronto.");
-            if (so.getMode() == SisOp.ExecutionMode.THREADED) {
+            
+            pcb.setState(ProcessState.READY);
+            readyQueue.add(pcb); 
+
+            System.out.println("Processo " + pcb.getId() + " DESBLOQUEADO e movido para Prontos.");
+
+            if (so.getMode() == SisOp.ExecutionMode.THREADED && runningProcess == null) {
                 schedulerLock.notifyAll();
             }
-            return pcb.getId();
+        }
+    }
+    
+    public void desbloqueiaProcessoVM(int id) {
+        synchronized (schedulerLock) {
+            PCB pcb = null;
+            Iterator<PCB> it = blockedVMQueue.iterator(); 
+            while (it.hasNext()) {
+                PCB p = it.next();
+                if (p.getId() == id) {
+                    pcb = p;
+                    it.remove(); 
+                    break;
+                }
+            }
+
+            if (pcb == null) {
+                System.out.println("AVISO: PM.desbloqueiaProcessoVM não encontrou P" + id + " na fila (VM).");
+                return;
+            }
+            
+            pcb.setState(ProcessState.READY);
+            readyQueue.add(pcb);
+
+            System.out.println("Processo " + pcb.getId() + " DESBLOQUEADO (VM) e movido para Prontos.");
+
+            if (so.getMode() == SisOp.ExecutionMode.THREADED && runningProcess == null) {
+                schedulerLock.notifyAll();
+            }
         }
     }
 
@@ -102,24 +235,51 @@ public class SisOp_ProcessManager {
                 System.out.println("Erro: Processo com ID " + id + " não encontrado.");
                 return;
             }
-            so.gm.desaloca(pcb.getPageTable());
+            
+            so.gm.desalocaFrames(pcb.getPageTable());
             pcbList.remove(pcb);
             readyQueue.remove(pcb);
+            blockedQueue.remove(pcb);
+            blockedVMQueue.remove(pcb);
+
             if (runningProcess != null && runningProcess.getId() == id) {
-                runningProcess = null;
-                terminaProcessoAtual();
+                System.out.println("Processo " + id + " desalocado (estava rodando).");
+                terminaProcessoAtual(); 
+            } else {
+                 System.out.println("Processo " + id + " desalocado.");
             }
-            System.out.println("Processo " + id + " desalocado.");
         }
     }
 
-    private PCB findPcbById(int id) {
+    public PCB findPcbById(int id) {
         for (PCB pcb : pcbList)
             if (pcb.getId() == id)
                 return pcb;
         return null;
     }
 
+    public VictimInfo findAndInvalidateVictim(int frameNumber) {
+        synchronized (schedulerLock) {
+            for (PCB pcb : pcbList) {
+                if (pcb.getPageTable() != null) {
+                    for (int i = 0; i < pcb.getPageTable().length; i++) {
+                        PageTableEntry pte = pcb.getPageTable()[i];
+                        if (pte.valid && pte.frameNumber == frameNumber) {
+                            
+                            pte.valid = false;
+                            VictimInfo vitima = new VictimInfo(pcb, i, pte);
+                            
+                            System.out.println("                                               PM: Vítima encontrada! P-" + pcb.getId() + ", Pág: " + i + ", Frame: " + frameNumber);
+                            
+                            return vitima;
+                        }
+                    }
+                }
+            }
+        }
+        return null; 
+    }
+    
     public void escalonar(boolean processoTerminou) {
         synchronized (schedulerLock) {
             if (runningProcess != null && !processoTerminou) {
@@ -154,13 +314,12 @@ public class SisOp_ProcessManager {
                 return;
             System.out.println("Processo " + runningProcess.getId() + " terminou.");
             runningProcess.setState(ProcessState.TERMINATED);
-            so.gm.desaloca(runningProcess.getPageTable());
+            so.gm.desalocaFrames(runningProcess.getPageTable()); 
             pcbList.remove(runningProcess);
             runningProcess = null;
             escalonar(true);
         }
     }
-
     public void listAllProcesses() {
         synchronized (schedulerLock) {
             System.out.println("Lista de todos os processos:");
@@ -169,8 +328,11 @@ public class SisOp_ProcessManager {
                 return;
             }
             for (PCB pcb : pcbList) {
-                System.out.println("  ID: " + pcb.getId() + ", Estado: " + pcb.getState() + ", PC: " + pcb.getPc() + ", Tabela: " + Arrays.toString(pcb.getPageTable()));
+                System.out.println("  ID: " + pcb.getId() + ", Estado: " + pcb.getState() + ", PC: " + pcb.getPc());
             }
+            System.out.println("--- Fila de Prontos: " + readyQueue.stream().map(PCB::getId).toList());
+            System.out.println("--- Fila de Bloqueados (Console): " + blockedQueue.stream().map(PCB::getId).toList());
+            System.out.println("--- Fila de Bloqueados (VM): " + blockedVMQueue.stream().map(PCB::getId).toList()); 
         }
     }
 
@@ -183,13 +345,26 @@ public class SisOp_ProcessManager {
             }
             System.out.println("--- Dump do Processo ID: " + pcb.getId() + " ---");
             System.out.println("  Estado: " + pcb.getState() + ", PC Lógico: " + pcb.getPc());
-            System.out.println("  Tabela de Páginas: " + Arrays.toString(pcb.getPageTable()));
-            System.out.println("  Conteúdo da Memória (visão física):");
-            for (int frame : pcb.getPageTable()) {
-                int start = frame * so.TAM_PAG;
-                int end = start + so.TAM_PAG;
-                System.out.println("    Frame " + frame + " (Endereços Físicos " + start + "-" + (end - 1) + "):");
-                so.utils.dump(start, end);
+            
+            System.out.println("  Tabela de Páginas (" + pcb.getPageTable().length + " entradas):");
+            for (int i=0; i < pcb.getPageTable().length; i++) {
+                PageTableEntry pte = pcb.getPageTable()[i];
+                if (pte.valid) {
+                    System.out.printf("    Pag %2d -> Frame %2d (Valid: %b, Dirty: %b)\n", i, pte.frameNumber, pte.valid, pte.dirty);
+                } else {
+                    System.out.printf("    Pag %2d -> [No Disco] (Valid: %b)\n", i, pte.valid);
+                }
+            }
+            
+            System.out.println("  Conteúdo da Memória (visão física dos frames válidos):");
+            for (PageTableEntry pte : pcb.getPageTable()) {
+                if (pte.valid) {
+                    int frame = pte.frameNumber;
+                    int start = frame * so.TAM_PAG;
+                    int end = start + so.TAM_PAG;
+                    System.out.println("    Frame " + frame + " (Endereços Físicos " + start + "-" + (end - 1) + "):");
+                    so.utils.dump(start, end);
+                }
             }
             System.out.println("--- Fim do Dump ---");
         }

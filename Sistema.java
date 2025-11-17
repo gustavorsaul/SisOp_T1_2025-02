@@ -3,16 +3,17 @@ import java.util.Scanner;
 // Ponto de entrada principal da aplicação. Contém o shell do usuário.
 public class Sistema {
     
-    private Hardware.HW hw;
+   private Hardware.HW hw;
     private SisOp so;
-    private Programs progs;
+    public Programs progs;
     private final int TAM_MEM = 1024;
+    private final int TAM_PAG = 16;
     private final int QUANTUM = 4;
 
     public Sistema() {
-        this.hw = new Hardware.HW(TAM_MEM, 32); 
-        this.so = new SisOp(hw);
-        this.progs = new Programs();
+        this.hw = new Hardware.HW(TAM_MEM, TAM_PAG); 
+        this.progs = new Programs(); 
+        this.so = new SisOp(hw, this.progs);
     }
 
     public void run() {
@@ -27,10 +28,12 @@ public class Sistema {
 
             switch (command[0].toLowerCase()) {
                 case "new":
-                    if (command.length > 1) 
-                        so.processManager.criaProcesso(progs.retrieveProgram(command[1]));
-                    else 
-                        System.out.println("Uso: new <nomeDoPrograma>");
+                    if (command.length > 1) {
+                    String progName = command[1];
+                    Hardware.Word[] programa = progs.retrieveProgram(progName);
+                    so.processManager.criaProcesso(programa, progName); 
+                    } else 
+                    System.out.println("Uso: new <nomeDoPrograma>");
                     break;
                 case "rm":
                     if (command.length > 1) 
@@ -112,17 +115,34 @@ public class Sistema {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
                     synchronized (so.processManager.getSchedulerLock()) {
-                        while (so.processManager.getReadyQueue().isEmpty() && so.processManager.getRunningProcess() == null) {
+                        
+                        //Loop de Espera ociosa 
+                        while (so.processManager.getRunningProcess() == null && 
+                               so.processManager.getReadyQueue().isEmpty() &&
+                               so.hw.cpu.getPendingInterrupt() == Hardware.CPU.Interrupts.noInterrupt) {
+                            
                             so.processManager.getSchedulerLock().wait();
                         }
+
+                        // Trata interrupções pendentes 
+                        Hardware.CPU.Interrupts pendingIrpt = so.hw.cpu.getPendingInterrupt();
+                        if (pendingIrpt != Hardware.CPU.Interrupts.noInterrupt) {
+                            so.hw.cpu.clearInterrupt();
+                            so.interruptHandling.handle(pendingIrpt); 
+                        }
+
+                        // Se a interrupção  colocou algo na fila, escalona
                         if (so.processManager.getRunningProcess() == null && !so.processManager.getReadyQueue().isEmpty()) {
                             so.processManager.escalonar(false);
                         }
-                    }
+                    } 
+                    
+                    //  Se houver um processo rodando, executa um ciclo
                     if (so.processManager.getRunningProcess() != null) {
                         so.hw.cpu.step(this.quantum);
+                        Thread.sleep(300); 
                     }
-                    Thread.sleep(300);
+                    
                 } catch (InterruptedException e) {
                     System.out.println("Thread do escalonador interrompida. Encerrando.");
                     Thread.currentThread().interrupt();

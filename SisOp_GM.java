@@ -1,18 +1,18 @@
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 // Interface para o Gerente de Memória.
-interface GM_Interface {
-    int[] aloca(int nroPalavras);
-    void desaloca(int[] tabelaPaginas);
-}
+    interface GM_Interface {
+    int alocaFrameLivre();
+    void desalocaFrames(SisOp_ProcessManager.PageTableEntry[] tabelaPaginas);
+    void liberaFrame(int frameNumber);
+    int findVictimFrame();
+    }
 
-// Implementação simples de um Gerente de Memória com paginação.
-public class SisOp_GM implements GM_Interface {
+    public class SisOp_GM implements GM_Interface {
     private int tamPg;
     private int qtdFrames;
     private boolean[] livre;
+    private int lastVictimPointer = 0; // Ponteiro para política "Relógio" (FIFO Circular)
 
     public SisOp_GM(int tamMem, int tamPg) {
         this.tamPg = tamPg;
@@ -22,33 +22,55 @@ public class SisOp_GM implements GM_Interface {
     }
 
     @Override
-    public int[] aloca(int nroPalavras) {
-        int paginasNec = (nroPalavras + this.tamPg - 1) / this.tamPg;
-        List<Integer> frames = new ArrayList<>();
-        for (int f = 0; f < qtdFrames && frames.size() < paginasNec; f++) {
+    public int alocaFrameLivre() {
+        for (int f = 0; f < qtdFrames; f++) {
             if (livre[f]) {
-                frames.add(f);
+                livre[f] = false;
+                return f; // Retorna o primeiro frame livre encontrado
             }
         }
-        if (frames.size() < paginasNec) {
-            return null; // Memória insuficiente
-        }
-        int[] tabela = new int[paginasNec];
-        for (int i = 0; i < paginasNec; i++) {
-            int f = frames.get(i);
-            tabela[i] = f;
-            livre[f] = false;
-        }
-        return tabela;
+        System.out.println("GM: Memória cheia. Nenhum frame livre encontrado.");
+        return -1; 
     }
 
     @Override
-    public void desaloca(int[] tabelaPaginas) {
+    public void liberaFrame(int frameNumber) {
+        if (frameNumber >= 0 && frameNumber < livre.length) {
+            livre[frameNumber] = true;
+        } else {
+            System.out.println("GM AVISO: Tentativa de liberar frame inválido: " + frameNumber);
+        }
+    }
+
+    @Override
+    public void desalocaFrames(SisOp_ProcessManager.PageTableEntry[] tabelaPaginas) {
         if (tabelaPaginas == null) return;
-        for (int f : tabelaPaginas) {
-            if (f >= 0 && f < livre.length) {
-                livre[f] = true;
+        
+        System.out.print("GM: Desalocando frames... ");
+        for (SisOp_ProcessManager.PageTableEntry pte : tabelaPaginas) {
+            if (pte.valid) { // Só libera frames que estão realmente em uso
+                int f = pte.frameNumber;
+                if (f >= 0 && f < livre.length) {
+                    livre[f] = true;
+                    System.out.print(f + " ");
+                    
+                    pte.valid = false;
+                    pte.frameNumber = -1;
+                    pte.dirty = false;
+                }
             }
         }
+        System.out.println();
+    }
+
+    @Override
+    public int findVictimFrame() {
+        
+        int victimFrame = lastVictimPointer;
+        lastVictimPointer = (lastVictimPointer + 1) % qtdFrames;
+        
+        System.out.println("GM: Vitimização! Frame " + victimFrame + " foi escolhido.");
+        
+        return victimFrame;
     }
 }

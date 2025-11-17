@@ -4,7 +4,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
-// Gerencia todos os aspectos dos processos.
 public class SisOp_ProcessManager {
 
     public enum ProcessState {
@@ -84,7 +83,6 @@ public class SisOp_ProcessManager {
         System.out.println("---------------------------------- Todos os processos terminaram (modo bloqueante).");
     }
 
-    // --- MÉTODO CENTRAL DA CORREÇÃO ---
     public int criaProcesso(Hardware.Word[] programa, String progName) {
         synchronized (schedulerLock) {
             if (programa == null) {
@@ -98,48 +96,37 @@ public class SisOp_ProcessManager {
 
             so.diskManager.saveProgramToStore(pcb.getProgramId(), programa);
 
-            // --- LÓGICA DE ALOCAÇÃO/VITIMIZAÇÃO ---
             int frame = so.gm.findFreeFrame();
             
             if (frame == -1) {
-                // --- INÍCIO DA CORREÇÃO (VITIMIZAÇÃO NA CRIAÇÃO) ---
                 System.out.println("--- criaProcesso: RAM cheia. Iniciando vitimização para P" + pcb.getId() + " (Página 0)");
                 int victimFrame = so.gm.selectVictimFrame();
                 SisOp_GM.FrameInfo victimInfo = so.gm.getFrameInfo(victimFrame);
                 
                 if (victimInfo == null || victimInfo.waiter != null) {
                     System.out.println("Erro Crítico: Vitimização falhou (vítima inválida ou já esperando).");
-                    // Limpa o PCB recém-criado, pois falhou
-                    so.diskManager.clearSwap(pcb.getId()); // Limpa o programStore
+                    so.diskManager.clearSwap(pcb.getId()); 
                     return -1;
                 }
                 
                 System.out.println("--- criaProcesso: Frame " + victimFrame + " (Processo " + victimInfo.pcb.getId() + ", Página " + victimInfo.pageNumber + ") foi vitimado.");
 
-                // 1. Marca a página da vítima como "em disco"
                 victimInfo.pcb.getPageTable()[victimInfo.pageNumber].valid = false;
                 victimInfo.pcb.getPageTable()[victimInfo.pageNumber].onDisk = true;
                 
-                // 2. Define o NOVO processo (pcb) como "esperando" por este frame, para sua Página 0
-                so.gm.setWaiter(victimFrame, pcb, 0); // <-- O waiter quer a página 0
+                so.gm.setWaiter(victimFrame, pcb, 0); 
                 
-                // 3. Salva a página da vítima no disco (assíncrono)
                 so.diskManager.requestSave(victimInfo.pcb, victimInfo.pageNumber, victimFrame);
                 
-                // 4. Coloca o novo processo na lista, mas na fila de BLOQUEADOS
                 pcbList.add(pcb);
                 blockedQueue.add(pcb);
                 pcb.setState(ProcessState.BLOCKED);
                 
-                // 5. Loga
                 so.logger.log(pcb.getId(), pcb.getProgramName(), "criacao_vitim", "NULO", "BLOQUEADO", pcb.getPageTable());
                 
-                // 6. Retorna (o processo não está pronto para rodar)
                 return pcb.getId();
 
             } else {
-                // --- FIM DA CORREÇÃO ---
-                // (Caso normal: Havia um frame livre)
                 so.gm.occupyFrame(frame, pcb, 0);
                 tabelaPaginas[0].valid = true;
                 tabelaPaginas[0].frameNumber = frame;

@@ -9,7 +9,6 @@ import java.io.PrintWriter;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 
-// Classe principal do Sistema Operacional.
 public class SisOp {
     
     public Hardware.HW hw;
@@ -66,10 +65,8 @@ public class SisOp {
         System.out.println("Modo de execução contínuo (threaded) ativado.");
     }
 
-    // --- CLASSES INTERNAS ---
 
     public class Utilities {
-        // ... (inalterado) ...
         private Hardware.HW hw;
         public Utilities(Hardware.HW hw) { this.hw = hw; }
         public void loadPage(Hardware.Word[] program, int frame, int page) {
@@ -109,7 +106,6 @@ public class SisOp {
     }
     
     public class InterruptHandling {
-        // ... (inalterado) ...
         private SisOp so;
         private SisOp_ProcessManager.PCB lastIOProcess; 
         public InterruptHandling(SisOp so) { this.so = so; }
@@ -151,7 +147,6 @@ public class SisOp {
     }
 
     public class SysCallHandling {
-        // ... (inalterado) ...
         private SisOp so;
         public SysCallHandling(SisOp so) { this.so = so; }
         public void stop() { 
@@ -187,9 +182,8 @@ public class SisOp {
     }
 
     public class IORequest {
-        // ... (inalterado) ...
         public SisOp_ProcessManager.PCB pcb;
-        public int operation; // 1 = READ, 2 = WRITE
+        public int operation; 
         public int address;
         public IORequest(SisOp_ProcessManager.PCB pcb, int operation, int address) {
             this.pcb = pcb; this.operation = operation; this.address = address;
@@ -197,7 +191,6 @@ public class SisOp {
     }
 
     public class DeviceManager implements Runnable {
-        // ... (inalterado) ...
         private SisOp so;
         private Queue<IORequest> requestQueue;
         private final Object ioQueueLock = new Object(); 
@@ -280,7 +273,6 @@ public class SisOp {
         }
     }
 
-    // --- MUDANÇA (VITIMIZAÇÃO) ---
     public class VMManager {
         private SisOp so;
         public VMManager(SisOp so) { this.so = so; }
@@ -299,15 +291,13 @@ public class SisOp {
                 SisOp_GM.FrameInfo victimInfo = so.gm.getFrameInfo(victimFrame);
                 if (victimInfo == null || victimInfo.waiter != null) {
                     System.out.println("--- VMManager: ERRO! Vitimização falhou (vítima inválida ou já esperando).");
-                    so.processManager.blockCurrentProcess("Page_Fault_Falha"); // Bloqueia mesmo assim
+                    so.processManager.blockCurrentProcess("Page_Fault_Falha"); 
                     return;
                 }
                 System.out.println("--- VMManager: Frame " + victimFrame + " (Processo " + victimInfo.pcb.getId() + ", Página " + victimInfo.pageNumber + ") foi vitimado.");
                 victimInfo.pcb.getPageTable()[victimInfo.pageNumber].valid = false;
                 victimInfo.pcb.getPageTable()[victimInfo.pageNumber].onDisk = true;
                 
-                // --- CORREÇÃO ---
-                // Informa ao GM que o pcb atual está esperando por este frame, para a página 'page'
                 so.gm.setWaiter(victimFrame, pcb, page);
                 
                 so.diskManager.requestSave(victimInfo.pcb, victimInfo.pageNumber, victimFrame);
@@ -317,7 +307,6 @@ public class SisOp {
     }
     
     public class DiskRequest {
-        // ... (inalterado) ...
         public enum OpType { LOAD_FROM_PROG, LOAD_FROM_SWAP, SAVE_TO_SWAP }
         public OpType type;
         public SisOp_ProcessManager.PCB pcb;
@@ -333,7 +322,6 @@ public class SisOp {
         }
     }
 
-    // --- MUDANÇA (VITIMIZAÇÃO) ---
     public class DiskManager implements Runnable {
         private SisOp so;
         private Queue<DiskRequest> diskQueue;
@@ -365,7 +353,7 @@ public class SisOp {
             programStore.put(progId, program);
         }
         public void clearSwap(int pcbId) {
-            // Em uma implementação real, iteraríamos e removeríamos chaves pcbId_*
+            
         }
         @Override
         public void run() {
@@ -410,8 +398,6 @@ public class SisOp {
                         if (info != null && info.waiter != null) {
                             SisOp_ProcessManager.PCB waiterPcb = info.waiter;
                             
-                            // --- CORREÇÃO ---
-                            // Pega a página que o waiter precisava (salva no FrameInfo)
                             int waiterPage = info.waiterPage;
                             
                             System.out.println("--- DiskManager: Frame " + req.frame + " está livre. Acordando P" + waiterPcb.getId() + " para carregar Pag " + waiterPage);
@@ -427,7 +413,6 @@ public class SisOp {
     }
     
     public class Logger {
-        // ... (inalterado, com a formatação de alinhamento) ...
         private PrintWriter logFile;
         private String logFileName;
         private String logFormat;

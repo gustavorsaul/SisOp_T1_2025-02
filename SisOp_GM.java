@@ -1,22 +1,18 @@
 import java.util.Arrays;
 
-// Interface para o Gerente de Memória.
 interface GM_Interface {
-    // Métodos antigos removidos/alterados
 }
 
-// Implementação com gerenciamento de frames para VM
 public class SisOp_GM implements GM_Interface {
     private int tamPg;
     private int qtdFrames;
-    private FrameInfo[] frameMap; // Mapa de frames físicos
+    private FrameInfo[] frameMap;
 
-    // --- MUDANÇA (VITIMIZAÇÃO) ---
     public class FrameInfo {
         public SisOp_ProcessManager.PCB pcb;
-        public int pageNumber; // Página lógica do processo
-        public SisOp_ProcessManager.PCB waiter; // Processo esperando este frame
-        public int waiterPage = -1; // Página que o waiter está esperando
+        public int pageNumber;
+        public SisOp_ProcessManager.PCB waiter;
+        public int waiterPage = -1; 
 
         public FrameInfo(SisOp_ProcessManager.PCB pcb, int pageNumber) {
             this.pcb = pcb;
@@ -46,7 +42,7 @@ public class SisOp_GM implements GM_Interface {
         if (pcb == null) return;
         for (int i = 0; i < qtdFrames; i++) {
             if (frameMap[i] != null && frameMap[i].pcb.getId() == pcb.getId()) {
-                frameMap[i] = null; // Libera o frame
+                frameMap[i] = null; 
             }
         }
     }
@@ -57,18 +53,17 @@ public class SisOp_GM implements GM_Interface {
                 return i;
             }
         }
-        return -1; // Nenhum frame livre
+        return -1; 
     }
 
     public int selectVictimFrame() {
-        // Política de vitimização simples: FIFO (pega o primeiro ocupado que não esteja esperando)
         for (int i = 0; i < qtdFrames; i++) {
             if (frameMap[i] != null && frameMap[i].waiter == null) {
-                return i; // Encontrou uma vítima
+                return i; 
             }
         }
         
-        return 0; // Fallback (não deve acontecer se houver > 1 frame)
+        return 0; 
     }
 
     public FrameInfo getFrameInfo(int frame) {
@@ -86,8 +81,6 @@ public class SisOp_GM implements GM_Interface {
         frameMap[frame] = null;
     }
     
-    // --- MUDANÇA (VITIMIZAÇÃO) ---
-    // Agora armazena qual página o waiter precisa
     public void setWaiter(int frame, SisOp_ProcessManager.PCB waiterPcb, int pageNeeded) {
         if (frame < 0 || frame >= qtdFrames) return;
         if (frameMap[frame] != null) {

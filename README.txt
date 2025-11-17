@@ -33,8 +33,16 @@ Restrições:
     * Nenhuma restrição conhecida. O sistema está funcionando como esperado.
 
 --------------------------------
-3. Testes
+3. Execução
 --------------------------------
+
+Primeiro compile todos os arquivos com o comando abaixo:
+
+javac -d bin Hardware.java SisOp_GM.java SisOp_ProcessManager.java SisOp.java Sistema.java
+
+Para a execução, use o comando abaixo:
+
+java -cp bin Sistema
 
 Para testar, a forma mais fácil é:
 1.  Iniciar o programa.
@@ -46,6 +54,10 @@ Para testar, a forma mais fácil é:
     Neste caso, tente apertar a tecla ENTER para dar continuidade ao programa e forçar a próxima instrução.
     Isso provavelmente está ocorrendo devido às várias Thread rodando em simultâneo e realizando prints e instruções,
     podendo causar alguma "sobra" no terminal, sendo necessário apertar ENTER nestes casos e aparecer o próximo print.
+
+--------------------------------
+4. Testes
+--------------------------------
 
 ---
 Teste: fatorial

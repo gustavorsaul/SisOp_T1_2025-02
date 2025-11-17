@@ -1,19 +1,14 @@
 import java.util.Arrays;
 
-// Classe "container" para todos os componentes de hardware.
 public class Hardware {
 
-    // --- NOVA CLASSE (PASSO 1) ---
-    // Representa uma entrada na Tabela de Páginas.
-    // Precisa ser pública para que o PCB e o GM possam usá-la.
     public static class PageTableEntry {
-        public int frameNumber = -1; // Número do frame na RAM
-        public boolean valid = false;    // Está na RAM?
-        public boolean onDisk = false;   // Está no disco (swap)?
-        public int diskAddress = -1; // Endereço no disco
+        public int frameNumber = -1;
+        public boolean valid = false;
+        public boolean onDisk = false;
+        public int diskAddress = -1;
     }
 
-    // Representa a Unidade Central de Processamento (CPU).
     public static class CPU {
         public enum Opcode {
             DATA, ___, JMP, JMPI, JMPIG, JMPIL, JMPIE, JMPIM, JMPIGM, JMPILM, JMPIEM,
@@ -24,7 +19,6 @@ public class Hardware {
         public enum Interrupts {
             noInterrupt, intEnderecoInvalido, intInstrucaoInvalida, intOverflow, intQuantumEnd, 
             intIO,
-            // --- NOVA INTERRUPÇÃO (PASSO 2) ---
             intPageFault
         }
 
@@ -35,8 +29,6 @@ public class Hardware {
         private Interrupts irpt;
         private Word[] m;
         private int tamPg;
-        // --- MUDANÇA (PASSO 1) ---
-        // A tabela de páginas agora é um array de entradas complexas
         private PageTableEntry[] tabelaPaginas = null; 
         private SisOp.InterruptHandling ih;
         private SisOp.SysCallHandling sysCall;
@@ -45,8 +37,6 @@ public class Hardware {
         private SisOp.Utilities u;
         private int instructionCounter;
         
-        // --- NOVO CAMPO (PASSO 2) ---
-        // Armazena a página que causou o Page Fault
         private int faultedPage = -1;
 
         public CPU(Memory _mem, boolean _debug, int tamPag) {
@@ -73,13 +63,10 @@ public class Hardware {
             this.u = _u;
         }
 
-        // --- MUDANÇA (PASSO 1) ---
-        // MMU agora recebe PageTableEntry[]
         public void setMMU(PageTableEntry[] _tabelaPaginas) {
             this.tabelaPaginas = _tabelaPaginas;
         }
         
-        // --- NOVO MÉTODO (PASSO 4) ---
         public int getFaultedPage() {
             return this.faultedPage;
         }
@@ -105,13 +92,11 @@ public class Hardware {
             this.irpt = Interrupts.intIO;
         }
 
-        // Método para o SO (SysCall) forçar um Page Fault
         public void triggerPageFault(int page) {
             this.faultedPage = page;
             this.irpt = Interrupts.intPageFault;
         }
 
-        // --- MUDANÇA CENTRAL (PASSO 2) ---
         public int toPhysical(int endLogico) {
             if (tabelaPaginas == null) return endLogico;
             if (endLogico < 0) {
@@ -125,18 +110,16 @@ public class Hardware {
                 return -1;
             }
             
-            // Pega a entrada da tabela de páginas
             PageTableEntry entry = tabelaPaginas[pag];
 
-            // --- LÓGICA DE PAGE FAULT ---
             if (!entry.valid) {
-                this.faultedPage = pag;          // Armazena a página que falhou
-                irpt = Interrupts.intPageFault; // Dispara a interrupção
-                return -1;                      // Retorna -1 para parar a instrução
+                this.faultedPage = pag;
+                irpt = Interrupts.intPageFault;
+                return -1;
             }
             
             int frame = entry.frameNumber;
-            if (frame < 0) { // Segurança extra
+            if (frame < 0) {
                 irpt = Interrupts.intEnderecoInvalido;
                 return -1;
             }
@@ -160,33 +143,20 @@ public class Hardware {
         public void step(int quantum) {
             if (cpuStop) return;
 
-            // 1. Trata interrupções (se houver)
             if (irpt != Interrupts.noInterrupt) {
                 Interrupts currentIrpt = irpt;
                 irpt = Interrupts.noInterrupt;
                 ih.handle(currentIrpt);
-                // Se a interrupção foi um Page Fault, o handler NÃO retoma.
-                // Ele bloqueia o processo. A CPU para.
-                // Se foi um erro (ex: overflow), a CPU para.
                 if (cpuStop) return;
-                // Se foi intQuantumEnd ou intIO, a CPU pode ter sido trocada,
-                // então recomeçamos o step (ou paramos se não há processo)
                 if (cpuStop) return; 
             }
 
-            // 2. Busca da instrução (chama toPhysical, que pode causar Page Fault)
             int pcFis = toPhysical(pc);
             
-            // 3. Verifica se o Page Fault ocorreu durante a busca
             if (irpt == Interrupts.intPageFault) {
-                // O 'toPhysical' já setou a interrupção.
-                // A instrução não é executada. O PC não avança.
-                // O loop 'step' termina, e a interrupção será tratada
-                // no *início* da *próxima* chamada de 'step'.
                 return; 
             }
 
-            // 4. Executa a instrução (se a busca foi OK)
             if (legalFisico(pcFis)) {
                 ir = m[pcFis];
                 if (debug) {
@@ -198,20 +168,16 @@ public class Hardware {
                     u.dump(ir);
                 }
                 
-                // Armazena o PC original, caso um fault ocorra nos operandos
                 int oldPC = pc; 
                 
                 switch (ir.opc) {
-                    // ... (LDI, ADD, SUB, etc.) ...
-                    // O 'toPhysical' é chamado dentro de LDD, STD, LDX, STX...
-                    // Se *eles* causarem um Page Fault, 'irpt' será setado.
                     case LDI:
                         reg[ir.r1] = ir.p;
                         pc++;
                         break;
                     case LDD: {
                         int a = toPhysical(ir.p);
-                        if (irpt != Interrupts.noInterrupt) break; // Page fault no operando
+                        if (irpt != Interrupts.noInterrupt) break;
                         if (legalFisico(a)) {
                             reg[ir.r1] = m[a].p;
                             pc++;
@@ -220,7 +186,7 @@ public class Hardware {
                         break;
                     case LDX: {
                         int a = toPhysical(reg[ir.r2]);
-                        if (irpt != Interrupts.noInterrupt) break; // Page fault no operando
+                        if (irpt != Interrupts.noInterrupt) break;
                         if (legalFisico(a)) {
                             reg[ir.r1] = m[a].p;
                             pc++;
@@ -229,7 +195,7 @@ public class Hardware {
                         break;
                     case STD: {
                         int a = toPhysical(ir.p);
-                        if (irpt != Interrupts.noInterrupt) break; // Page fault no operando
+                        if (irpt != Interrupts.noInterrupt) break;
                         if (legalFisico(a)) {
                             m[a].opc = Opcode.DATA;
                             m[a].p = reg[ir.r1];
@@ -239,7 +205,7 @@ public class Hardware {
                         break;
                     case STX: {
                         int a = toPhysical(reg[ir.r1]);
-                        if (irpt != Interrupts.noInterrupt) break; // Page fault no operando
+                        if (irpt != Interrupts.noInterrupt) break;
                         if (legalFisico(a)) {
                             m[a].opc = Opcode.DATA;
                             m[a].p = reg[ir.r2];
@@ -247,7 +213,6 @@ public class Hardware {
                         }
                     }
                         break;
-                    // ... (outros cases) ...
                     case MOVE: reg[ir.r1] = reg[ir.r2]; pc++; break;
                     case ADD: reg[ir.r1] += reg[ir.r2]; testOverflow(reg[ir.r1]); pc++; break;
                     case ADDI: reg[ir.r1] += ir.p; testOverflow(reg[ir.r1]); pc++; break;
@@ -279,14 +244,11 @@ public class Hardware {
                         break;
                 }
                 
-                // Se um Page Fault ocorreu durante a execução (ex: LDD),
-                // a interrupção está setada. Resetamos o PC para re-executar.
                 if (irpt == Interrupts.intPageFault) {
                     pc = oldPC;
                 }
             }
 
-            // 5. Verifica o Quantum
             if (irpt == Interrupts.noInterrupt) {
                 instructionCounter++;
                 if (instructionCounter >= quantum) {
@@ -307,7 +269,6 @@ public class Hardware {
         }
     }
 
-    // --- CLASSES Memory e Word (inalteradas) ---
     public static class Memory {
         public Word[] pos;
         public Memory(int size) {
@@ -333,7 +294,7 @@ public class Hardware {
         public CPU cpu;
         public HW(int tamMem, int tamPag) {
             this.mem = new Memory(tamMem);
-            this.cpu = new CPU(this.mem, false, tamPag); // Usando tamPag dinâmico
+            this.cpu = new CPU(this.mem, false, tamPag);
         }
     }
 }

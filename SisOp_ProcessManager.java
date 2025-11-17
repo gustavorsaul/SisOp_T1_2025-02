@@ -4,7 +4,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
-// Gerencia todos os aspectos dos processos.
 public class SisOp_ProcessManager {
 
     public enum ProcessState {
@@ -18,7 +17,6 @@ public class SisOp_ProcessManager {
         private int[] registradores;
         private ProcessState state;
         private int programId;
-        // --- NOVO CAMPO (LOGGER) ---
         private String programName;
 
         public PCB(int id, Hardware.PageTableEntry[] pageTable, int programId, String programName) {
@@ -28,7 +26,6 @@ public class SisOp_ProcessManager {
             this.state = ProcessState.READY;
             this.registradores = new int[10];
             this.programId = programId;
-            // --- NOVO CAMPO (LOGGER) ---
             this.programName = programName;
         }
 
@@ -40,7 +37,6 @@ public class SisOp_ProcessManager {
         public ProcessState getState() { return state; }
         public void setState(ProcessState state) { this.state = state; }
         public int getProgramId() { return programId; }
-        // --- NOVO MÉTODO (LOGGER) ---
         public String getProgramName() { return programName; }
     }
 
@@ -68,7 +64,6 @@ public class SisOp_ProcessManager {
     public Object getSchedulerLock() { return schedulerLock; }
 
     public void execAllBlocking(int quantum) {
-        // ... (inalterado) ...
         if (so.getMode() == SisOp.ExecutionMode.THREADED) {
             System.out.println("Comando 'execAll' não está disponível no modo de execução contínua (threaded).");
             return;
@@ -89,8 +84,6 @@ public class SisOp_ProcessManager {
         System.out.println("---------------------------------- Todos os processos terminaram (modo bloqueante).");
     }
 
-    // --- MUDANÇA (LOGGER) ---
-    // Assinatura alterada para incluir progName
     public int criaProcesso(Hardware.Word[] programa, String progName) {
         synchronized (schedulerLock) {
             if (programa == null) {
@@ -100,8 +93,6 @@ public class SisOp_ProcessManager {
             
             Hardware.PageTableEntry[] tabelaPaginas = so.gm.createPageTable(programa.length);
 
-            // --- MUDANÇA (LOGGER) ---
-            // Construtor do PCB atualizado
             PCB pcb = new PCB(nextProcessId++, tabelaPaginas, -1, progName); 
             pcb.programId = pcb.getId(); 
 
@@ -123,8 +114,6 @@ public class SisOp_ProcessManager {
             readyQueue.add(pcb);
             System.out.println("Processo " + pcb.getId() + " ("+progName+") criado. Página 0 carregada no frame " + frame + ".");
 
-            // --- MUDANÇA (LOGGER) ---
-            // Loga a criação do processo
             so.logger.log(pcb.getId(), pcb.getProgramName(), "criacao", "NULO", "PRONTO", pcb.getPageTable());
 
             if (so.getMode() == SisOp.ExecutionMode.THREADED) {
@@ -135,7 +124,6 @@ public class SisOp_ProcessManager {
     }
 
     public void desalocaProcesso(int id) {
-        // ... (inalterado) ...
         synchronized (schedulerLock) {
             PCB pcb = findPcbById(id);
             if (pcb == null) {
@@ -157,7 +145,6 @@ public class SisOp_ProcessManager {
     }
 
     private PCB findPcbById(int id) {
-        // ... (inalterado) ...
         for (PCB pcb : pcbList)
             if (pcb.getId() == id)
                 return pcb;
@@ -167,14 +154,12 @@ public class SisOp_ProcessManager {
     public void escalonar(boolean processoTerminou) {
         synchronized (schedulerLock) {
             if (runningProcess != null && !processoTerminou) {
-                PCB preemptedPcb = runningProcess; // Pega o PCB antes de salvar
+                PCB preemptedPcb = runningProcess;
                 runningProcess.setContext(so.hw.cpu.getContextPC(), so.hw.cpu.getContextRegs());
                 runningProcess.setState(ProcessState.READY);
                 readyQueue.add(runningProcess);
                 System.out.println("Processo " + runningProcess.getId() + " salvo (quantum) e movido para a fila de prontos.\n");
                 
-                // --- MUDANÇA (LOGGER) ---
-                // Loga a preempção por quantum
                 so.logger.log(preemptedPcb.getId(), preemptedPcb.getProgramName(), "fatia_tempo", "EXECUTANDO", "PRONTO", preemptedPcb.getPageTable());
             }
 
@@ -192,8 +177,6 @@ public class SisOp_ProcessManager {
             runningProcess = readyQueue.poll();
             runningProcess.setState(ProcessState.RUNNING);
             
-            // --- MUDANÇA (LOGGER) ---
-            // Loga o dispatch (escalonamento)
             so.logger.log(runningProcess.getId(), runningProcess.getProgramName(), "escalonador", "PRONTO", "EXECUTANDO", runningProcess.getPageTable());
             
             so.hw.cpu.setContext(runningProcess.getPc(), runningProcess.getRegistradores());
@@ -210,12 +193,10 @@ public class SisOp_ProcessManager {
             if (runningProcess == null)
                 return;
 
-            PCB terminatedPcb = runningProcess; // Pega o PCB antes de anular
+            PCB terminatedPcb = runningProcess;
             System.out.println("Processo " + terminatedPcb.getId() + " terminou.");
             terminatedPcb.setState(ProcessState.TERMINATED);
             
-            // --- MUDANÇA (LOGGER) ---
-            // Loga a finalização
             so.logger.log(terminatedPcb.getId(), terminatedPcb.getProgramName(), "finalizacao", "EXECUTANDO", "TERMINADO", terminatedPcb.getPageTable());
 
             so.gm.desaloca(terminatedPcb); 
@@ -227,16 +208,12 @@ public class SisOp_ProcessManager {
         }
     }
 
-    // --- MUDANÇA (LOGGER) ---
-    // Assinatura alterada para incluir "reason"
     public void blockCurrentProcess(String reason) {
         synchronized (schedulerLock) {
             if (runningProcess == null) return;
             
-            PCB pcb = runningProcess; // Pega o PCB
+            PCB pcb = runningProcess;
 
-            // --- MUDANÇA (LOGGER) ---
-            // Loga o bloqueio
             so.logger.log(pcb.getId(), pcb.getProgramName(), reason, "EXECUTANDO", "BLOQUEADO", pcb.getPageTable());
             
             pcb.setState(ProcessState.BLOCKED);
@@ -249,14 +226,10 @@ public class SisOp_ProcessManager {
         }
     }
 
-    // --- MUDANÇA (LOGGER) ---
-    // Assinatura alterada para incluir "reason"
     public void unblockProcess(PCB pcb, String reason) {
         synchronized (schedulerLock) {
             if (pcb == null) return;
             
-            // --- MUDANÇA (LOGGER) ---
-            // Loga o desbloqueio
             so.logger.log(pcb.getId(), pcb.getProgramName(), reason, "BLOQUEADO", "PRONTO", pcb.getPageTable());
 
             blockedQueue.remove(pcb);
@@ -272,7 +245,6 @@ public class SisOp_ProcessManager {
     }
 
     public void listAllProcesses() {
-        // ... (inalterado) ...
         synchronized (schedulerLock) {
             System.out.println("Lista de todos os processos:");
             if (pcbList.isEmpty()) {
@@ -286,7 +258,6 @@ public class SisOp_ProcessManager {
     }
 
     public void dumpProcess(int id) {
-        // ... (inalterado) ...
         synchronized (schedulerLock) {
             PCB pcb = findPcbById(id);
             if (pcb == null) {

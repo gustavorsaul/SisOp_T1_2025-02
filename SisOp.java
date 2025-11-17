@@ -9,7 +9,6 @@ import java.io.PrintWriter;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 
-// Classe principal do Sistema Operacional.
 public class SisOp {
     
     public Hardware.HW hw;
@@ -65,8 +64,6 @@ public class SisOp {
         schedulerThread.start();
         System.out.println("Modo de execução contínuo (threaded) ativado.");
     }
-
-    // --- CLASSES INTERNAS ---
 
     public class Utilities {
         private Hardware.HW hw;
@@ -189,7 +186,7 @@ public class SisOp {
 
     public class IORequest {
         public SisOp_ProcessManager.PCB pcb;
-        public int operation; // 1 = READ, 2 = WRITE
+        public int operation;
         public int address;
         public IORequest(SisOp_ProcessManager.PCB pcb, int operation, int address) {
             this.pcb = pcb; this.operation = operation; this.address = address;
@@ -207,7 +204,7 @@ public class SisOp {
         public void addRequest(IORequest request) {
             synchronized (ioQueueLock) {
                 requestQueue.add(request);
-                ioQueueLock.notify(); 
+                ioQueueLock.notify();
             }
         }
         @Override
@@ -223,8 +220,8 @@ public class SisOp {
                 System.out.println("--- Dispositivo de E/S: Iniciando operação " + 
                                    (currentRequest.operation == 1 ? "READ" : "WRITE") + 
                                    " para o Processo " + currentRequest.pcb.getId() + " ---");
-                try { Thread.sleep(1000); } catch (InterruptedException e) {} 
-                if (currentRequest.operation == 1) { 
+                try { Thread.sleep(1000); } catch (InterruptedException e) {}
+                if (currentRequest.operation == 1) {
                     Sistema host = so.getSistemaHost();
                     Object hostLock = host.getIoConsoleLock();
                     int valor = 0;
@@ -246,7 +243,7 @@ public class SisOp {
                     int logicalAddr = currentRequest.address;
                     int pag = logicalAddr / so.TAM_PAG;
                     int off = logicalAddr % so.TAM_PAG;
-                    int endFis = -1; 
+                    int endFis = -1;
                     if (pag >= 0 && pag < pcbPageTable.length && pcbPageTable[pag].valid) {
                         int frame = pcbPageTable[pag].frameNumber;
                         endFis = (frame * so.TAM_PAG) + off;
@@ -257,7 +254,7 @@ public class SisOp {
                     } else {
                         System.out.println("--- Dispositivo de E/S: ERRO! Tradução de endereço falhou (página " + pag + " não é válida?). ---");
                     }
-                } else if (currentRequest.operation == 2) { 
+                } else if (currentRequest.operation == 2) {
                     Hardware.PageTableEntry[] pcbPageTable = currentRequest.pcb.getPageTable();
                     int logicalAddr = currentRequest.address;
                     int pag = logicalAddr / so.TAM_PAG;
@@ -328,8 +325,8 @@ public class SisOp {
         private SisOp so;
         private Queue<DiskRequest> diskQueue;
         private final Object diskLock = new Object();
-        private Map<Integer, Hardware.Word[]> programStore; 
-        private Map<String, Hardware.Word[]> swapStore;      
+        private Map<Integer, Hardware.Word[]> programStore;
+        private Map<String, Hardware.Word[]> swapStore;
         public DiskManager(SisOp so) {
             this.so = so;
             this.diskQueue = new LinkedList<>();
@@ -365,7 +362,7 @@ public class SisOp {
                     }
                     req = diskQueue.poll();
                 }
-                try { Thread.sleep(200); } catch (InterruptedException e) {} 
+                try { Thread.sleep(200); } catch (InterruptedException e) {}
                 switch (req.type) {
                     case LOAD_FROM_PROG:
                         System.out.println("--- DiskManager: LOAD (Programa) P" + req.pcb.getId() + ", Pag " + req.page + " -> Frame " + req.frame + " CONCLUÍDO.");
@@ -380,7 +377,7 @@ public class SisOp {
                         String swapKey = req.pcb.getId() + "_" + req.page;
                         Hardware.Word[] pageData = swapStore.get(swapKey);
                         if (pageData != null) {
-                            so.utils.loadPage(pageData, req.frame, 0); 
+                            so.utils.loadPage(pageData, req.frame, 0);
                             swapStore.remove(swapKey); 
                         }
                         req.pcb.getPageTable()[req.page].valid = true;
@@ -403,7 +400,7 @@ public class SisOp {
                                     break;
                                 }
                             }
-                            if (waiterPage == -1) waiterPage = 0; 
+                            if (waiterPage == -1) waiterPage = 0;
                             System.out.println("--- DiskManager: Frame " + req.frame + " está livre. Acordando P" + waiterPcb.getId() + " para carregar Pag " + waiterPage);
                             so.gm.occupyFrame(req.frame, waiterPcb, waiterPage);
                             requestLoad(waiterPcb, waiterPage, req.frame);
@@ -416,12 +413,9 @@ public class SisOp {
         }
     }
     
-    // --- CLASSE LOGGER MODIFICADA ---
     public class Logger {
         private PrintWriter logFile;
         private String logFileName;
-        // --- NOVO ---
-        // Define o formato de alinhamento
         private String logFormat;
 
         public Logger() {
@@ -445,12 +439,8 @@ public class SisOp {
                 this.logFile = new PrintWriter(new FileWriter(arquivoLog), true);
                 this.logFileName = nomeArquivo;
                 
-                // --- MUDANÇA (LOGGER FORMAT) ---
-                // Define as larguras: ID(5), NOME(15), MOTIVO(20), ESTADO_ANT(12), ESTADO_NOVO(12), TABELA
-                // %-Xs = String alinhada à esquerda com X caracteres
                 this.logFormat = "%-5s %-15s %-20s %-12s %-12s %s";
                 
-                // Escreve o cabeçalho formatado
                 this.logFile.println(String.format(this.logFormat, 
                     "ID", "NOME_PROG", "MOTIVO", "ESTADO_ANT", "ESTADO_NOVO", "TABELA_PAGINAS"
                 ));
@@ -467,14 +457,10 @@ public class SisOp {
             for (int i = 0; i < table.length; i++) {
                 Hardware.PageTableEntry entry = table[i];
                 if (entry.valid) {
-                    // [pag, frame, mp]
                     sb.append(String.format("[%d,%d,mp]", i, entry.frameNumber));
                 } else if (entry.onDisk) {
-                    // [pag, end_disco, ms]
-                    // (Nota: diskAddress não foi implementado, então será -1)
                     sb.append(String.format("[%d,%d,ms]", i, entry.diskAddress));
                 } else {
-                    // [pag, _, _]
                     sb.append(String.format("[%d,_,_]", i));
                 }
                 if (i < table.length - 1) {
@@ -490,9 +476,6 @@ public class SisOp {
             
             String tableStr = formatPageTable(pageTable);
             
-            // --- MUDANÇA (LOGGER FORMAT) ---
-            // Usa o formato de alinhamento para escrever a linha
-            // Converte 'id' para String para corresponder ao formato "%-5s"
             this.logFile.println(String.format(this.logFormat,
                 Integer.toString(id), progName, reason, initialState, nextState, tableStr
             ));

@@ -1,0 +1,136 @@
+ID; NOME_PROG; MOTIVO; ESTADO_ANT; ESTADO_NOVO; TABELA_PAGINAS
+1; fatorial; criacao; NULO; PRONTO; { [0,0,mp] }
+1; fatorial; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; fatorial; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; fatorial; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; fatorial; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; fatorial; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; fatorial; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; fatorial; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; fatorial; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; fatorial; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; fatorial; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; fatorial; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; fatorial; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; fatorial; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; fatorial; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp] }
+2; fatorialV2; criacao; NULO; PRONTO; { [0,0,mp], [1,_,_] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_] }
+2; fatorialV2; Page_Fault; EXECUTANDO; BLOQUEADO; { [0,0,mp], [1,_,_] }
+2; fatorialV2; Fim_Page_Fault; BLOQUEADO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; E/S_Console; EXECUTANDO; BLOQUEADO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; Fim_E/S_Console; BLOQUEADO; PRONTO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+2; fatorialV2; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp], [1,1,mp] }
+3; progMinimo; criacao; NULO; PRONTO; { [0,0,mp] }
+3; progMinimo; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+3; progMinimo; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+3; progMinimo; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+3; progMinimo; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp] }
+4; fibonacci10; criacao; NULO; PRONTO; { [0,0,mp], [1,_,_] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_] }
+4; fibonacci10; Page_Fault; EXECUTANDO; BLOQUEADO; { [0,0,mp], [1,_,_] }
+4; fibonacci10; Fim_Page_Fault; BLOQUEADO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,1,mp] }
+4; fibonacci10; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp], [1,1,mp] }
+5; PB; criacao; NULO; PRONTO; { [0,0,mp] }
+5; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+5; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+5; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+5; PB; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp] }
+6; PB; criacao; NULO; PRONTO; { [0,0,mp] }
+6; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+6; PB; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp] }
+7; PC; criacao; NULO; PRONTO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+7; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+7; PC; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+7; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+7; PC; Page_Fault; EXECUTANDO; BLOQUEADO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+7; PC; Fim_Page_Fault; BLOQUEADO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+7; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+7; PC; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+7; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+7; PC; Page_Fault; EXECUTANDO; BLOQUEADO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+7; PC; Fim_Page_Fault; BLOQUEADO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+7; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+7; PC; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+7; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+7; PC; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+8; PC; criacao; NULO; PRONTO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+8; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+8; PC; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+8; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+8; PC; Page_Fault; EXECUTANDO; BLOQUEADO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+8; PC; Fim_Page_Fault; BLOQUEADO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+8; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+8; PC; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+8; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+8; PC; Page_Fault; EXECUTANDO; BLOQUEADO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+8; PC; Fim_Page_Fault; BLOQUEADO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+8; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+8; PC; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+8; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+8; PC; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }

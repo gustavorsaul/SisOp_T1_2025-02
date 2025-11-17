@@ -1,0 +1,16 @@
+ID; NOME_PROG; MOTIVO; ESTADO_ANT; ESTADO_NOVO; TABELA_PAGINAS
+1; PC; criacao; NULO; PRONTO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+1; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+1; PC; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+1; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+1; PC; Page_Fault; EXECUTANDO; BLOQUEADO; { [0,0,mp], [1,_,_], [2,_,_], [3,_,_] }
+1; PC; Fim_Page_Fault; BLOQUEADO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+1; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+1; PC; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+1; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+1; PC; Page_Fault; EXECUTANDO; BLOQUEADO; { [0,0,mp], [1,_,_], [2,1,mp], [3,_,_] }
+1; PC; Fim_Page_Fault; BLOQUEADO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+1; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+1; PC; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+1; PC; escalonador; PRONTO; EXECUTANDO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }
+1; PC; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp], [1,_,_], [2,1,mp], [3,2,mp] }

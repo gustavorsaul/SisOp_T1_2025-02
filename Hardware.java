@@ -3,6 +3,16 @@ import java.util.Arrays;
 // Classe "container" para todos os componentes de hardware.
 public class Hardware {
 
+    // --- NOVA CLASSE (PASSO 1) ---
+    // Representa uma entrada na Tabela de Páginas.
+    // Precisa ser pública para que o PCB e o GM possam usá-la.
+    public static class PageTableEntry {
+        public int frameNumber = -1; // Número do frame na RAM
+        public boolean valid = false;    // Está na RAM?
+        public boolean onDisk = false;   // Está no disco (swap)?
+        public int diskAddress = -1; // Endereço no disco
+    }
+
     // Representa a Unidade Central de Processamento (CPU).
     public static class CPU {
         public enum Opcode {
@@ -13,8 +23,9 @@ public class Hardware {
 
         public enum Interrupts {
             noInterrupt, intEnderecoInvalido, intInstrucaoInvalida, intOverflow, intQuantumEnd, 
-            // PASSO 4: Adicionada Interrupção de E/S
-            intIO 
+            intIO,
+            // --- NOVA INTERRUPÇÃO (PASSO 2) ---
+            intPageFault
         }
 
         private int maxInt, minInt;
@@ -24,13 +35,19 @@ public class Hardware {
         private Interrupts irpt;
         private Word[] m;
         private int tamPg;
-        private int[] tabelaPaginas = null;
+        // --- MUDANÇA (PASSO 1) ---
+        // A tabela de páginas agora é um array de entradas complexas
+        private PageTableEntry[] tabelaPaginas = null; 
         private SisOp.InterruptHandling ih;
         private SisOp.SysCallHandling sysCall;
         private boolean cpuStop;
         private boolean debug;
         private SisOp.Utilities u;
         private int instructionCounter;
+        
+        // --- NOVO CAMPO (PASSO 2) ---
+        // Armazena a página que causou o Page Fault
+        private int faultedPage = -1;
 
         public CPU(Memory _mem, boolean _debug, int tamPag) {
             this.maxInt = 32767;
@@ -56,8 +73,15 @@ public class Hardware {
             this.u = _u;
         }
 
-        public void setMMU(int[] _tabelaPaginas) {
+        // --- MUDANÇA (PASSO 1) ---
+        // MMU agora recebe PageTableEntry[]
+        public void setMMU(PageTableEntry[] _tabelaPaginas) {
             this.tabelaPaginas = _tabelaPaginas;
+        }
+        
+        // --- NOVO MÉTODO (PASSO 4) ---
+        public int getFaultedPage() {
+            return this.faultedPage;
         }
 
         public int getContextPC() {
@@ -77,11 +101,17 @@ public class Hardware {
             this.instructionCounter = 0;
         }
 
-        // PASSO 4: Método para o dispositivo (outra thread) disparar uma interrupção
         public void triggerIOInterrupt() {
             this.irpt = Interrupts.intIO;
         }
 
+        // Método para o SO (SysCall) forçar um Page Fault
+        public void triggerPageFault(int page) {
+            this.faultedPage = page;
+            this.irpt = Interrupts.intPageFault;
+        }
+
+        // --- MUDANÇA CENTRAL (PASSO 2) ---
         public int toPhysical(int endLogico) {
             if (tabelaPaginas == null) return endLogico;
             if (endLogico < 0) {
@@ -94,11 +124,23 @@ public class Hardware {
                 irpt = Interrupts.intEnderecoInvalido;
                 return -1;
             }
-            int frame = tabelaPaginas[pag];
-            if (frame < 0) {
+            
+            // Pega a entrada da tabela de páginas
+            PageTableEntry entry = tabelaPaginas[pag];
+
+            // --- LÓGICA DE PAGE FAULT ---
+            if (!entry.valid) {
+                this.faultedPage = pag;          // Armazena a página que falhou
+                irpt = Interrupts.intPageFault; // Dispara a interrupção
+                return -1;                      // Retorna -1 para parar a instrução
+            }
+            
+            int frame = entry.frameNumber;
+            if (frame < 0) { // Segurança extra
                 irpt = Interrupts.intEnderecoInvalido;
                 return -1;
             }
+
             int endFis = frame * tamPg + off;
             if (endFis < 0 || endFis >= m.length) {
                 irpt = Interrupts.intEnderecoInvalido;
@@ -118,15 +160,33 @@ public class Hardware {
         public void step(int quantum) {
             if (cpuStop) return;
 
-            // Tratamento de interrupção DEVE vir antes da execução da instrução
-            // para que a interrupção de E/S (assíncrona) seja processada.
+            // 1. Trata interrupções (se houver)
             if (irpt != Interrupts.noInterrupt) {
-                ih.handle(irpt);
+                Interrupts currentIrpt = irpt;
                 irpt = Interrupts.noInterrupt;
-                if (cpuStop) return; // Se a interrupção parou a CPU (p.ex. erro)
+                ih.handle(currentIrpt);
+                // Se a interrupção foi um Page Fault, o handler NÃO retoma.
+                // Ele bloqueia o processo. A CPU para.
+                // Se foi um erro (ex: overflow), a CPU para.
+                if (cpuStop) return;
+                // Se foi intQuantumEnd ou intIO, a CPU pode ter sido trocada,
+                // então recomeçamos o step (ou paramos se não há processo)
+                if (cpuStop) return; 
             }
 
+            // 2. Busca da instrução (chama toPhysical, que pode causar Page Fault)
             int pcFis = toPhysical(pc);
+            
+            // 3. Verifica se o Page Fault ocorreu durante a busca
+            if (irpt == Interrupts.intPageFault) {
+                // O 'toPhysical' já setou a interrupção.
+                // A instrução não é executada. O PC não avança.
+                // O loop 'step' termina, e a interrupção será tratada
+                // no *início* da *próxima* chamada de 'step'.
+                return; 
+            }
+
+            // 4. Executa a instrução (se a busca foi OK)
             if (legalFisico(pcFis)) {
                 ir = m[pcFis];
                 if (debug) {
@@ -137,14 +197,21 @@ public class Hardware {
                     System.out.print("\n------------------------------------------------------------");
                     u.dump(ir);
                 }
+                
+                // Armazena o PC original, caso um fault ocorra nos operandos
+                int oldPC = pc; 
+                
                 switch (ir.opc) {
-                    // ... (todos os cases de LDI a MULT permanecem iguais) ...
+                    // ... (LDI, ADD, SUB, etc.) ...
+                    // O 'toPhysical' é chamado dentro de LDD, STD, LDX, STX...
+                    // Se *eles* causarem um Page Fault, 'irpt' será setado.
                     case LDI:
                         reg[ir.r1] = ir.p;
                         pc++;
                         break;
                     case LDD: {
                         int a = toPhysical(ir.p);
+                        if (irpt != Interrupts.noInterrupt) break; // Page fault no operando
                         if (legalFisico(a)) {
                             reg[ir.r1] = m[a].p;
                             pc++;
@@ -153,6 +220,7 @@ public class Hardware {
                         break;
                     case LDX: {
                         int a = toPhysical(reg[ir.r2]);
+                        if (irpt != Interrupts.noInterrupt) break; // Page fault no operando
                         if (legalFisico(a)) {
                             reg[ir.r1] = m[a].p;
                             pc++;
@@ -161,6 +229,7 @@ public class Hardware {
                         break;
                     case STD: {
                         int a = toPhysical(ir.p);
+                        if (irpt != Interrupts.noInterrupt) break; // Page fault no operando
                         if (legalFisico(a)) {
                             m[a].opc = Opcode.DATA;
                             m[a].p = reg[ir.r1];
@@ -170,6 +239,7 @@ public class Hardware {
                         break;
                     case STX: {
                         int a = toPhysical(reg[ir.r1]);
+                        if (irpt != Interrupts.noInterrupt) break; // Page fault no operando
                         if (legalFisico(a)) {
                             m[a].opc = Opcode.DATA;
                             m[a].p = reg[ir.r2];
@@ -177,90 +247,29 @@ public class Hardware {
                         }
                     }
                         break;
-                    case MOVE:
-                        reg[ir.r1] = reg[ir.r2];
-                        pc++;
-                        break;
-                    case ADD:
-                        reg[ir.r1] += reg[ir.r2];
-                        testOverflow(reg[ir.r1]);
-                        pc++;
-                        break;
-                    case ADDI:
-                        reg[ir.r1] += ir.p;
-                        testOverflow(reg[ir.r1]);
-                        pc++;
-                        break;
-                    case SUB:
-                        reg[ir.r1] -= reg[ir.r2];
-                        testOverflow(reg[ir.r1]);
-                        pc++;
-                        break;
-                    case SUBI:
-                        reg[ir.r1] -= ir.p;
-                        testOverflow(reg[ir.r1]);
-                        pc++;
-                        break;
-                    case MULT:
-                        reg[ir.r1] *= reg[ir.r2];
-                        testOverflow(reg[ir.r1]);
-                        pc++;
-                        break;
-                    case JMP:
-                        pc = ir.p;
-                        break;
-                    case JMPI:
-                        pc = reg[ir.r1];
-                        break;
-                    case JMPIG:
-                        pc = (reg[ir.r2] > 0) ? reg[ir.r1] : pc + 1;
-                        break;
-                    case JMPIL:
-                        pc = (reg[ir.r2] < 0) ? reg[ir.r1] : pc + 1;
-                        break;
-                    case JMPIE:
-                        pc = (reg[ir.r2] == 0) ? reg[ir.r1] : pc + 1;
-                        break;
-                    case JMPIGK:
-                        pc = (reg[ir.r2] > 0) ? ir.p : pc + 1;
-                        break;
-                    case JMPILK:
-                        pc = (reg[ir.r2] < 0) ? ir.p : pc + 1;
-                        break;
-                    case JMPIEK:
-                        pc = (reg[ir.r2] == 0) ? ir.p : pc + 1;
-                        break;
-                    case JMPIM: {
-                        int a = toPhysical(ir.p);
-                        if (legalFisico(a))
-                            pc = m[a].p;
-                    }
-                        break;
-                    case JMPIGM: {
-                        int a = toPhysical(ir.p);
-                        if (legalFisico(a))
-                            pc = (reg[ir.r2] > 0) ? m[a].p : pc + 1;
-                    }
-                        break;
-                    case JMPILM: {
-                        int a = toPhysical(ir.p);
-                        if (legalFisico(a))
-                            pc = (reg[ir.r2] < 0) ? m[a].p : pc + 1;
-                    }
-                        break;
-                    case JMPIEM: {
-                        int a = toPhysical(ir.p);
-                        if (legalFisico(a))
-                            pc = (reg[ir.r2] == 0) ? m[a].p : pc + 1;
-                    }
-                        break;
-                    case DATA:
-                        irpt = Interrupts.intInstrucaoInvalida;
-                        break;
+                    // ... (outros cases) ...
+                    case MOVE: reg[ir.r1] = reg[ir.r2]; pc++; break;
+                    case ADD: reg[ir.r1] += reg[ir.r2]; testOverflow(reg[ir.r1]); pc++; break;
+                    case ADDI: reg[ir.r1] += ir.p; testOverflow(reg[ir.r1]); pc++; break;
+                    case SUB: reg[ir.r1] -= reg[ir.r2]; testOverflow(reg[ir.r1]); pc++; break;
+                    case SUBI: reg[ir.r1] -= ir.p; testOverflow(reg[ir.r1]); pc++; break;
+                    case MULT: reg[ir.r1] *= reg[ir.r2]; testOverflow(reg[ir.r1]); pc++; break;
+                    case JMP: pc = ir.p; break;
+                    case JMPI: pc = reg[ir.r1]; break;
+                    case JMPIG: pc = (reg[ir.r2] > 0) ? reg[ir.r1] : pc + 1; break;
+                    case JMPIL: pc = (reg[ir.r2] < 0) ? reg[ir.r1] : pc + 1; break;
+                    case JMPIE: pc = (reg[ir.r2] == 0) ? reg[ir.r1] : pc + 1; break;
+                    case JMPIGK: pc = (reg[ir.r2] > 0) ? ir.p : pc + 1; break;
+                    case JMPILK: pc = (reg[ir.r2] < 0) ? ir.p : pc + 1; break;
+                    case JMPIEK: pc = (reg[ir.r2] == 0) ? ir.p : pc + 1; break;
+                    case JMPIM: { int a = toPhysical(ir.p); if (irpt != Interrupts.noInterrupt) break; if (legalFisico(a)) pc = m[a].p; } break;
+                    case JMPIGM: { int a = toPhysical(ir.p); if (irpt != Interrupts.noInterrupt) break; if (legalFisico(a)) pc = (reg[ir.r2] > 0) ? m[a].p : pc + 1; } break;
+                    case JMPILM: { int a = toPhysical(ir.p); if (irpt != Interrupts.noInterrupt) break; if (legalFisico(a)) pc = (reg[ir.r2] < 0) ? m[a].p : pc + 1; } break;
+                    case JMPIEM: { int a = toPhysical(ir.p); if (irpt != Interrupts.noInterrupt) break; if (legalFisico(a)) pc = (reg[ir.r2] == 0) ? m[a].p : pc + 1; } break;
+
+                    case DATA: irpt = Interrupts.intInstrucaoInvalida; break;
                     case SYSCALL:
-                        // PASSO 3: A Syscall agora é tratada de forma assíncrona
-                        pc++; // IMPORTANTE: O PC DEVE avançar ANTES do handle salvar o contexto
-                        sysCall.handle(); // Agora o handle salvará o PC já incrementado (3, não 2)
+                        sysCall.handle(); 
                         break;
                     case STOP:
                         sysCall.stop();
@@ -269,27 +278,25 @@ public class Hardware {
                         irpt = Interrupts.intInstrucaoInvalida;
                         break;
                 }
+                
+                // Se um Page Fault ocorreu durante a execução (ex: LDD),
+                // a interrupção está setada. Resetamos o PC para re-executar.
+                if (irpt == Interrupts.intPageFault) {
+                    pc = oldPC;
+                }
             }
+
+            // 5. Verifica o Quantum
             if (irpt == Interrupts.noInterrupt) {
                 instructionCounter++;
                 if (instructionCounter >= quantum) {
                     irpt = Interrupts.intQuantumEnd;
                 }
             }
-            // Movido para o início do loop
-            // if (irpt != Interrupts.noInterrupt) {
-            //     ih.handle(irpt);
-            //     irpt = Interrupts.noInterrupt;
-            // }
         }
 
-        public void stop() {
-            this.cpuStop = true;
-        }
-
-        public void start() {
-            this.cpuStop = false;
-        }
+        public void stop() { this.cpuStop = true; }
+        public void start() { this.cpuStop = false; }
 
         private boolean testOverflow(int v) {
             if ((v < minInt) || (v > maxInt)) {
@@ -300,9 +307,9 @@ public class Hardware {
         }
     }
 
+    // --- CLASSES Memory e Word (inalteradas) ---
     public static class Memory {
         public Word[] pos;
-
         public Memory(int size) {
             this.pos = new Word[size];
             for (int i = 0; i < pos.length; i++) {
@@ -316,23 +323,17 @@ public class Hardware {
         public int r1;
         public int r2;
         public int p;
-
         public Word(CPU.Opcode _opc, int _r1, int _r2, int _p) {
-            this.opc = _opc;
-            this.r1 = _r1;
-            this.r2 = _r2;
-            this.p = _p;
+            this.opc = _opc; this.r1 = _r1; this.r2 = _r2; this.p = _p;
         }
     }
 
     public static class HW {
         public Memory mem;
         public CPU cpu;
-
         public HW(int tamMem, int tamPag) {
             this.mem = new Memory(tamMem);
-            // CORREÇÃO (da nossa conversa anterior): Hardcoded 16 para corresponder ao SisOp.
-            this.cpu = new CPU(this.mem, false, 16); 
+            this.cpu = new CPU(this.mem, false, tamPag); // Usando tamPag dinâmico
         }
     }
 }

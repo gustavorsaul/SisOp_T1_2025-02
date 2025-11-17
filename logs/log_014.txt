@@ -1,0 +1,75 @@
+ID    NOME_PROG       MOTIVO               ESTADO_ANT   ESTADO_NOVO  TABELA_PAGINAS
+1     fatorial        criacao              NULO         PRONTO       { [0,0,mp] }
+1     fatorial        escalonador          PRONTO       EXECUTANDO   { [0,0,mp] }
+1     fatorial        fatia_tempo          EXECUTANDO   PRONTO       { [0,0,mp] }
+1     fatorial        escalonador          PRONTO       EXECUTANDO   { [0,0,mp] }
+1     fatorial        fatia_tempo          EXECUTANDO   PRONTO       { [0,0,mp] }
+1     fatorial        escalonador          PRONTO       EXECUTANDO   { [0,0,mp] }
+1     fatorial        fatia_tempo          EXECUTANDO   PRONTO       { [0,0,mp] }
+1     fatorial        escalonador          PRONTO       EXECUTANDO   { [0,0,mp] }
+1     fatorial        fatia_tempo          EXECUTANDO   PRONTO       { [0,0,mp] }
+1     fatorial        escalonador          PRONTO       EXECUTANDO   { [0,0,mp] }
+1     fatorial        fatia_tempo          EXECUTANDO   PRONTO       { [0,0,mp] }
+1     fatorial        escalonador          PRONTO       EXECUTANDO   { [0,0,mp] }
+1     fatorial        fatia_tempo          EXECUTANDO   PRONTO       { [0,0,mp] }
+1     fatorial        escalonador          PRONTO       EXECUTANDO   { [0,0,mp] }
+1     fatorial        fatia_tempo          EXECUTANDO   PRONTO       { [0,0,mp] }
+1     fatorial        escalonador          PRONTO       EXECUTANDO   { [0,0,mp] }
+1     fatorial        E/S_Console          EXECUTANDO   BLOQUEADO    { [0,0,mp] }
+2     fibonacci10     criacao              NULO         PRONTO       { [0,1,mp], [1,_,_] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,_,_] }
+2     fibonacci10     Page_Fault           EXECUTANDO   BLOQUEADO    { [0,1,mp], [1,_,_] }
+2     fibonacci10     Fim_Page_Fault       BLOQUEADO    PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+1     fatorial        Fim_E/S_Console      BLOQUEADO    PRONTO       { [0,0,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+1     fatorial        escalonador          PRONTO       EXECUTANDO   { [0,0,mp] }
+1     fatorial        finalizacao          EXECUTANDO   TERMINADO    { [0,0,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     fatia_tempo          EXECUTANDO   PRONTO       { [0,1,mp], [1,2,mp] }
+2     fibonacci10     escalonador          PRONTO       EXECUTANDO   { [0,1,mp], [1,2,mp] }
+2     fibonacci10     finalizacao          EXECUTANDO   TERMINADO    { [0,1,mp], [1,2,mp] }

@@ -1,0 +1,22 @@
+ID; NOME_PROG; MOTIVO; ESTADO_ANT; ESTADO_NOVO; TABELA_PAGINAS
+1; PB; criacao; NULO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; fatia_tempo; EXECUTANDO; PRONTO; { [0,0,mp] }
+1; PB; escalonador; PRONTO; EXECUTANDO; { [0,0,mp] }
+1; PB; finalizacao; EXECUTANDO; TERMINADO; { [0,0,mp] }

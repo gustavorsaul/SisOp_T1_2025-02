@@ -4,12 +4,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
+// Gerenciador de processos: criação, escalonamento e controle de estados
 public class SisOp_ProcessManager {
 
     public enum ProcessState {
         READY, RUNNING, TERMINATED, BLOCKED
     }
 
+    // Process Control Block: informações de um processo
     public static class PCB {
         private int id;
         private int pc;
@@ -62,6 +64,7 @@ public class SisOp_ProcessManager {
     public Queue<PCB> getBlockedQueue() { return blockedQueue; }
     public Object getSchedulerLock() { return schedulerLock; }
 
+    // Executa todos os processos em modo bloqueante
     public void execAllBlocking(int quantum) {
         if (so.getMode() == SisOp.ExecutionMode.THREADED) {
             System.out.println("Comando 'execAll' não está disponível no modo de execução contínua (threaded).");
@@ -147,6 +150,7 @@ public class SisOp_ProcessManager {
         }
     }
 
+    // Remove um processo do sistema
     public void desalocaProcesso(int id) {
         synchronized (schedulerLock) {
             PCB pcb = findPcbById(id);
@@ -168,6 +172,7 @@ public class SisOp_ProcessManager {
         }
     }
 
+    // Busca PCB pelo ID do processo
     private PCB findPcbById(int id) {
         for (PCB pcb : pcbList)
             if (pcb.getId() == id)
@@ -175,6 +180,7 @@ public class SisOp_ProcessManager {
         return null;
     }
 
+    // Escalona o próximo processo da fila de prontos
     public void escalonar(boolean processoTerminou) {
         synchronized (schedulerLock) {
             if (runningProcess != null && !processoTerminou) {
@@ -213,6 +219,7 @@ public class SisOp_ProcessManager {
         }
     }
 
+    // Finaliza o processo em execução
     public void terminaProcessoAtual() {
         synchronized (schedulerLock) {
             if (runningProcess == null)
@@ -233,6 +240,7 @@ public class SisOp_ProcessManager {
         }
     }
 
+    // Bloqueia o processo atual (por E/S ou page fault)
     public void blockCurrentProcess(String reason) {
         synchronized (schedulerLock) {
             if (runningProcess == null) return;
@@ -246,6 +254,7 @@ public class SisOp_ProcessManager {
         }
     }
 
+    // Desbloqueia um processo e o coloca na fila de prontos
     public void unblockProcess(PCB pcb, String reason) {
         synchronized (schedulerLock) {
             if (pcb == null) return;
@@ -263,6 +272,7 @@ public class SisOp_ProcessManager {
         }
     }
 
+    // Lista todos os processos do sistema
     public void listAllProcesses() {
         synchronized (schedulerLock) {
             System.out.println("Lista de todos os processos:");
@@ -276,6 +286,7 @@ public class SisOp_ProcessManager {
         }
     }
 
+    // Exibe informações detalhadas de um processo
     public void dumpProcess(int id) {
         synchronized (schedulerLock) {
             PCB pcb = findPcbById(id);

@@ -2,6 +2,7 @@ import java.util.Arrays;
 
 public class Hardware {
 
+    // Entrada da tabela de páginas para paginação sob demanda
     public static class PageTableEntry {
         public int frameNumber = -1;
         public boolean valid = false;
@@ -9,6 +10,7 @@ public class Hardware {
         public int diskAddress = -1;
     }
 
+    // Simulador da CPU com suporte a paginação e interrupções
     public static class CPU {
         public enum Opcode {
             DATA, ___, JMP, JMPI, JMPIG, JMPIL, JMPIE, JMPIM, JMPIGM, JMPILM, JMPIEM,
@@ -63,6 +65,7 @@ public class Hardware {
             this.u = _u;
         }
 
+        // Define a tabela de páginas do processo atual
         public void setMMU(PageTableEntry[] _tabelaPaginas) {
             this.tabelaPaginas = _tabelaPaginas;
         }
@@ -97,6 +100,7 @@ public class Hardware {
             this.irpt = Interrupts.intPageFault;
         }
 
+        // Traduz endereço lógico para físico usando tabela de páginas
         public int toPhysical(int endLogico) {
             if (tabelaPaginas == null) return endLogico;
             if (endLogico < 0) {
@@ -132,6 +136,7 @@ public class Hardware {
             return endFis;
         }
 
+        // Verifica se endereço físico é válido
         private boolean legalFisico(int e) {
             if (e >= 0 && e < m.length) return true;
             else {
@@ -260,6 +265,7 @@ public class Hardware {
         public void stop() { this.cpuStop = true; }
         public void start() { this.cpuStop = false; }
 
+        // Verifica overflow aritmético
         private boolean testOverflow(int v) {
             if ((v < minInt) || (v > maxInt)) {
                 irpt = Interrupts.intOverflow;
@@ -269,6 +275,7 @@ public class Hardware {
         }
     }
 
+    // Memória RAM simulada
     public static class Memory {
         public Word[] pos;
         public Memory(int size) {
@@ -279,6 +286,7 @@ public class Hardware {
         }
     }
 
+    // Palavra de memória (instrução ou dado)
     public static class Word {
         public CPU.Opcode opc;
         public int r1;
@@ -289,6 +297,7 @@ public class Hardware {
         }
     }
 
+    // Hardware completo: memória e CPU
     public static class HW {
         public Memory mem;
         public CPU cpu;

@@ -3,11 +3,13 @@ import java.util.Arrays;
 interface GM_Interface {
 }
 
+// Gerenciador de Memória: controla frames e tabelas de páginas
 public class SisOp_GM implements GM_Interface {
     private int tamPg;
     private int qtdFrames;
     private FrameInfo[] frameMap;
 
+    // Informações sobre o que está ocupando um frame
     public class FrameInfo {
         public SisOp_ProcessManager.PCB pcb;
         public int pageNumber;
@@ -27,6 +29,7 @@ public class SisOp_GM implements GM_Interface {
         this.frameMap = new FrameInfo[qtdFrames];
     }
 
+    // Cria tabela de páginas para um programa
     public Hardware.PageTableEntry[] createPageTable(int nroPalavras) {
         int paginasNec = (nroPalavras + this.tamPg - 1) / this.tamPg;
         if (paginasNec == 0) paginasNec = 1; 
@@ -38,6 +41,7 @@ public class SisOp_GM implements GM_Interface {
         return table;
     }
 
+    // Libera todos os frames de um processo
     public void desaloca(SisOp_ProcessManager.PCB pcb) {
         if (pcb == null) return;
         for (int i = 0; i < qtdFrames; i++) {
@@ -47,6 +51,7 @@ public class SisOp_GM implements GM_Interface {
         }
     }
     
+    // Busca um frame livre na memória
     public int findFreeFrame() {
         for (int i = 0; i < qtdFrames; i++) {
             if (frameMap[i] == null) {
@@ -56,6 +61,7 @@ public class SisOp_GM implements GM_Interface {
         return -1; 
     }
 
+    // Seleciona um frame para ser vitimado (substituição)
     public int selectVictimFrame() {
         for (int i = 0; i < qtdFrames; i++) {
             if (frameMap[i] != null && frameMap[i].waiter == null) {
@@ -66,21 +72,25 @@ public class SisOp_GM implements GM_Interface {
         return 0; 
     }
 
+    // Retorna informações sobre um frame específico
     public FrameInfo getFrameInfo(int frame) {
         if (frame < 0 || frame >= qtdFrames) return null;
         return frameMap[frame];
     }
     
+    // Marca um frame como ocupado por uma página
     public void occupyFrame(int frame, SisOp_ProcessManager.PCB pcb, int page) {
         if (frame < 0 || frame >= qtdFrames) return;
         frameMap[frame] = new FrameInfo(pcb, page);
     }
     
+    // Libera um frame específico
     public void freeFrame(int frame) {
         if (frame < 0 || frame >= qtdFrames) return;
         frameMap[frame] = null;
     }
     
+    // Define processo esperando por este frame (durante swap)
     public void setWaiter(int frame, SisOp_ProcessManager.PCB waiterPcb, int pageNeeded) {
         if (frame < 0 || frame >= qtdFrames) return;
         if (frameMap[frame] != null) {

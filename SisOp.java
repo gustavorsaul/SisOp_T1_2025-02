@@ -9,6 +9,7 @@ import java.io.PrintWriter;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 
+// Sistema Operacional: coordena hardware, processos, memória e E/S
 public class SisOp {
     
     public Hardware.HW hw;
@@ -49,6 +50,7 @@ public class SisOp {
     public ExecutionMode getMode() { return this.mode; }
     public Sistema getSistemaHost() { return this.sistemaHost; }
 
+    // Ativa modo de execução com threads (não bloqueante)
     public void activateThreadedMode(int quantum) {
         if (schedulerThreadStarted) {
             System.out.println("O modo de execução com threads já está ativo.");
@@ -66,9 +68,11 @@ public class SisOp {
     }
 
 
+    // Utilitários: carrega/salva páginas na memória
     public class Utilities {
         private Hardware.HW hw;
         public Utilities(Hardware.HW hw) { this.hw = hw; }
+        // Carrega uma página do programa em um frame da memória
         public void loadPage(Hardware.Word[] program, int frame, int page) {
             Hardware.Word[] m = hw.mem.pos;
             int startAddr = page * TAM_PAG;
@@ -85,6 +89,7 @@ public class SisOp {
                 }
             }
         }
+        // Salva conteúdo de um frame para swap
         public Hardware.Word[] savePage(int frame) {
             Hardware.Word[] pageData = new Hardware.Word[TAM_PAG];
             Hardware.Word[] m = hw.mem.pos;
@@ -96,6 +101,7 @@ public class SisOp {
             return pageData;
         }
         public void dump(Hardware.Word w) { System.out.print("[ " + w.opc + ", " + w.r1 + ", " + w.r2 + ", " + w.p + " ]"); }
+        // Exibe conteúdo da memória entre dois endereços
         public void dump(int ini, int fim) {
             for (int i = ini; i < fim; i++) {
                 System.out.print(i + ":  ");
@@ -105,11 +111,13 @@ public class SisOp {
         }
     }
     
+    // Tratador de interrupções (page fault, quantum, E/S, erros)
     public class InterruptHandling {
         private SisOp so;
         private SisOp_ProcessManager.PCB lastIOProcess; 
         public InterruptHandling(SisOp so) { this.so = so; }
         public void setLastIOProcess(SisOp_ProcessManager.PCB pcb) { this.lastIOProcess = pcb; }
+        // Trata diferentes tipos de interrupções
         public void handle(Hardware.CPU.Interrupts irpt) {
             SisOp_ProcessManager.PCB pcb = so.processManager.getRunningProcess();
             switch (irpt) {
@@ -146,12 +154,14 @@ public class SisOp {
         }
     }
 
+    // Tratador de chamadas de sistema (E/S e STOP)
     public class SysCallHandling {
         private SisOp so;
         public SysCallHandling(SisOp so) { this.so = so; }
         public void stop() { 
             so.processManager.terminaProcessoAtual(); 
         }
+        // Processa syscalls (leitura/escrita de E/S)
         public void handle() {
             int op = so.hw.cpu.getContextRegs()[8];
             int addr = so.hw.cpu.getContextRegs()[9];
@@ -181,6 +191,7 @@ public class SisOp {
         }
     }
 
+    // Requisição de E/S (leitura ou escrita no console)
     public class IORequest {
         public SisOp_ProcessManager.PCB pcb;
         public int operation; 
@@ -190,6 +201,7 @@ public class SisOp {
         }
     }
 
+    // Gerenciador de dispositivos: processa E/S em thread separada
     public class DeviceManager implements Runnable {
         private SisOp so;
         private Queue<IORequest> requestQueue;
@@ -198,12 +210,14 @@ public class SisOp {
             this.so = so;
             this.requestQueue = new LinkedList<>();
         }
+        // Adiciona requisição de E/S na fila
         public void addRequest(IORequest request) {
             synchronized (ioQueueLock) {
                 requestQueue.add(request);
                 ioQueueLock.notify(); 
             }
         }
+        // Thread que processa requisições de E/S
         @Override
         public void run() {
             while (true) {
@@ -273,10 +287,12 @@ public class SisOp {
         }
     }
 
+    // Gerenciador de memória virtual: trata page faults
     public class VMManager {
         private SisOp so;
         public VMManager(SisOp so) { this.so = so; }
 
+        // Trata falta de página: busca frame livre ou vitimiza
         public void handlePageFault(SisOp_ProcessManager.PCB pcb, int page) {
             System.out.println("--- VMManager: Tratando Page Fault para Processo " + pcb.getId() + ", Página " + page + " ---");
             int frame = so.gm.findFreeFrame();
@@ -306,6 +322,7 @@ public class SisOp {
         }
     }
     
+    // Requisição de operação em disco (swap ou carga de programa)
     public class DiskRequest {
         public enum OpType { LOAD_FROM_PROG, LOAD_FROM_SWAP, SAVE_TO_SWAP }
         public OpType type;
@@ -322,6 +339,7 @@ public class SisOp {
         }
     }
 
+    // Gerenciador de disco: simula swap em thread separada
     public class DiskManager implements Runnable {
         private SisOp so;
         private Queue<DiskRequest> diskQueue;
@@ -334,11 +352,13 @@ public class SisOp {
             this.programStore = new HashMap<>();
             this.swapStore = new HashMap<>();
         }
+        // Solicita carregamento de página do disco/swap
         public void requestLoad(SisOp_ProcessManager.PCB pcb, int page, int frame) {
             boolean fromSwap = pcb.getPageTable()[page].onDisk;
             System.out.println("--- DiskManager: Pedido de LOAD (P" + pcb.getId() + ", Pag " + page + ") para Frame " + frame + " (do " + (fromSwap ? "Swap" : "Programa") + ")");
             addRequest(new DiskRequest(pcb, page, frame, fromSwap));
         }
+        // Solicita salvamento de página no swap
         public void requestSave(SisOp_ProcessManager.PCB pcb, int page, int frame) {
             System.out.println("--- DiskManager: Pedido de SAVE (P" + pcb.getId() + ", Pag " + page + ") do Frame " + frame + " para o Swap");
             addRequest(new DiskRequest(pcb, page, frame));
@@ -349,12 +369,14 @@ public class SisOp {
                 diskLock.notify();
             }
         }
+        // Armazena programa original para futuras cargas
         public void saveProgramToStore(int progId, Hardware.Word[] program) {
             programStore.put(progId, program);
         }
         public void clearSwap(int pcbId) {
             
         }
+        // Thread que processa operações de disco (swap)
         @Override
         public void run() {
             while (true) {
@@ -412,6 +434,7 @@ public class SisOp {
         }
     }
     
+    // Logger: registra transições de estado dos processos
     public class Logger {
         private PrintWriter logFile;
         private String logFileName;
@@ -445,6 +468,7 @@ public class SisOp {
                 e.printStackTrace();
             }
         }
+        // Formata tabela de páginas para o log
         private String formatPageTable(Hardware.PageTableEntry[] table) {
             StringBuilder sb = new StringBuilder("{ ");
             for (int i = 0; i < table.length; i++) {
@@ -463,6 +487,7 @@ public class SisOp {
             sb.append(" }");
             return sb.toString();
         }
+        // Registra transição de estado no arquivo de log
         public void log(int id, String progName, String reason, String initialState, String nextState, Hardware.PageTableEntry[] pageTable) {
             if (this.logFile == null) return;
             String tableStr = formatPageTable(pageTable);

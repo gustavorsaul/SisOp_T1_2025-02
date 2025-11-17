@@ -1,5 +1,6 @@
 import java.util.Scanner;
 
+// Sistema host: interface de comandos e controle principal
 public class Sistema {
     
     private Hardware.HW hw;
@@ -22,6 +23,7 @@ public class Sistema {
     }
 
     public Object getIoConsoleLock() { return ioConsoleLock; }
+    // Indica que um processo está aguardando entrada do usuário
     public void startWaitingForIO(int pcbId) {
         this.isWaitingForIO = true;
         this.ioProcessId = pcbId;
@@ -29,6 +31,7 @@ public class Sistema {
     }
     public String getIoInputBuffer() { return this.ioInputBuffer; }
 
+    // Loop principal: processa comandos do usuário
     public void run() {
         System.out.println("Sistema Operacional iniciado em modo BLOQUEANTE.");
         System.out.println("Use 'help' para ver os comandos disponíveis ou 'thread2' para ativar o modo contínuo.");
@@ -123,6 +126,7 @@ public class Sistema {
         s.run();
     }
 
+    // Thread do escalonador para modo de execução contínua
     public static class SchedulerExecutor implements Runnable {
         private SisOp so;
         private int quantum;
@@ -132,6 +136,7 @@ public class Sistema {
             this.quantum = quantum;
         }
 
+        // Loop de escalonamento em modo threaded
         @Override
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
@@ -158,7 +163,9 @@ public class Sistema {
         }
     }
 
+    // Programas disponíveis para execução
     public static class Programs {
+        // Representa um programa com nome e código
         public class Program {
             public String name;
             public Hardware.Word[] code;
@@ -443,6 +450,7 @@ public class Sistema {
             };
         }
 
+        // Busca código de um programa pelo nome
         public Hardware.Word[] retrieveProgram(String pname) {
             for (Program p : progs) {
                 if (p != null && p.name.equals(pname)) {

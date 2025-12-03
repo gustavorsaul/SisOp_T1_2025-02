@@ -70,8 +70,11 @@ public class SisOp {
 
     // Utilitários: carrega/salva páginas na memória
     public class Utilities {
+        
         private Hardware.HW hw;
+        
         public Utilities(Hardware.HW hw) { this.hw = hw; }
+
         // Carrega uma página do programa em um frame da memória
         public void loadPage(Hardware.Word[] program, int frame, int page) {
             Hardware.Word[] m = hw.mem.pos;
@@ -89,6 +92,7 @@ public class SisOp {
                 }
             }
         }
+
         // Salva conteúdo de um frame para swap
         public Hardware.Word[] savePage(int frame) {
             Hardware.Word[] pageData = new Hardware.Word[TAM_PAG];
@@ -100,7 +104,9 @@ public class SisOp {
             }
             return pageData;
         }
+
         public void dump(Hardware.Word w) { System.out.print("[ " + w.opc + ", " + w.r1 + ", " + w.r2 + ", " + w.p + " ]"); }
+        
         // Exibe conteúdo da memória entre dois endereços
         public void dump(int ini, int fim) {
             for (int i = ini; i < fim; i++) {
@@ -117,6 +123,7 @@ public class SisOp {
         private SisOp_ProcessManager.PCB lastIOProcess; 
         public InterruptHandling(SisOp so) { this.so = so; }
         public void setLastIOProcess(SisOp_ProcessManager.PCB pcb) { this.lastIOProcess = pcb; }
+
         // Trata diferentes tipos de interrupções
         public void handle(Hardware.CPU.Interrupts irpt) {
             SisOp_ProcessManager.PCB pcb = so.processManager.getRunningProcess();
@@ -161,6 +168,7 @@ public class SisOp {
         public void stop() { 
             so.processManager.terminaProcessoAtual(); 
         }
+
         // Processa syscalls (leitura/escrita de E/S)
         public void handle() {
             int op = so.hw.cpu.getContextRegs()[8];
@@ -210,6 +218,7 @@ public class SisOp {
             this.so = so;
             this.requestQueue = new LinkedList<>();
         }
+        
         // Adiciona requisição de E/S na fila
         public void addRequest(IORequest request) {
             synchronized (ioQueueLock) {

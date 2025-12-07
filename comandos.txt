@@ -1,7 +1,0 @@
-- compilação
-
-javac -d bin Hardware.java SisOp_GM.java SisOp_ProcessManager.java SisOp.java Sistema.java
-
-- execução
-
-java -cp bin Sistema
